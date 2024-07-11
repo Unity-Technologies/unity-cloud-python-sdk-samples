@@ -1,0 +1,21 @@
+# For more information about the available options please visit: http://go/backstage (VPN required)
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  annotations:
+    github.com/project-slug: Unity-Technologies/unity-cloud-python-sdk-samples
+  name: unity-cloud-python-sdk-samples
+  description: "Various samples that show how to use the Unity Cloud Python SDK."
+  labels:
+    costcenter: "7054"
+  tags:
+    - planned-public
+    - enterprise
+  links:
+    - url: https://unity.slack.com/messages/C04R01SGG68/
+      title: "#uc-cs-am-python-sdk"
+      icon: chat
+spec:
+  type: other
+  lifecycle: experimental
+  owner: Unity-Technologies/unity-cloud-sdk-admin
