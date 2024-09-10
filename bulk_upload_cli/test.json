@@ -1,0 +1,19 @@
+{
+    "strategy": "unityPackage",
+    "filesCommonToEveryAssets": [],
+    "assetsPath": "C:\\UnitySrc\\Adventure Game Environment Pack URP.unitypackage",
+    "assetFileExtensions": [],
+    "organizationId": "3574059373213",
+    "projectId": "4e59a2d2-0fa0-43ae-8363-4315cb5f7111",
+    "serviceAccount": {
+        "keyId": "",
+        "key": ""
+    },
+    "amountOfParallelUploads": 15,
+    "collectionToLinkAssetTo": "None",
+    "tagsToApplyToAssets": [],
+    "assetNameCaseSensitive": false,
+    "metadataToApply": {},
+    "updateFiles": true,
+    "description": ""
+}

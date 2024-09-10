@@ -1,6 +1,20 @@
-# unity-cloud-python-sdk-samples
-Public slack channel: [#uc-cs-am-python-sdk](https://unity.slack.com/messages/C04R01SGG68/) <br/>
-[View this project in Backstage](https://backstage.corp.unity3d.com/catalog/default/component/unity-cloud-python-sdk-samples) <br/>
-# Converting to public repository
-Any and all Unity software of any description (including components) (1) whose source is to be made available other than under a Unity source code license or (2) in respect of which a public announcement is to be made concerning its inner workings, may be licensed and released only upon the prior approval of Legal.
-The process for that is to access, complete, and submit this [FORM](https://airtable.com/appj757BYrNIMuTBI/shriEdWiQuxWmJOku).
+# Python SDK samples
+
+This repository exposes a few samples that demonstrate the use of Python SDK in real life use-cases:
+
+- [Bulk Upload CLI](./bulk_upload_cli/README.md)
+- [Bulk Download script](./bulk_download_script/README.md)
+
+> **Note**: This repository does not accept pull requests, review requests, or any other GitHub-hosted issue management requests.
+
+## Licenses
+
+The Unity Cloud Python SDK samples are made available under the [Unity ToS license](./LICENSE.md).
+
+## See also
+
+- [Unity Cloud Python SDK documentation](https://docs.unity.com/cloud/en-us/asset-manager/python-sdk)
+
+## Tell us what you think!
+
+Thank you for taking a look at the project! To help us improve and provide greater value, please consider providing feedback in our [Help & Support page](https://cloud.unity.com/home/dashboard-support). Thank you!

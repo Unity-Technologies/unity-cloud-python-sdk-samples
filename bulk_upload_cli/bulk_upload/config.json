@@ -1,0 +1,19 @@
+{
+    "strategy": "",
+    "filesCommonToEveryAssets": [],
+    "assetsPath": "",
+    "assetFileExtensions": [],
+    "organizationId": "",
+    "projectId": "",
+    "serviceAccount": {
+        "keyId": "",
+        "key": ""
+    },
+    "amountOfParallelUploads": 15,
+    "collectionToLinkAssetTo": "",
+    "tagsToApplyToAssets": [],
+    "assetNameCaseSensitive": false,
+    "metadataToApply": {},
+    "updateFiles": true,
+    "description": ""
+}
