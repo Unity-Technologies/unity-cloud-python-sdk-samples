@@ -1,58 +1,66 @@
 # Bulk download script
 
-The sample script demonstrates how to use Python SDK to download assets from Unity Cloud Asset Manager.
+This sample script demonstrates how you can use Python SDK to download assets from Unity Cloud Asset Manager.
 
-To connect and find support, join the [Help & Support page](https://cloud.unity.com/home/dashboard-support)!
+Find and connect support services on the [Help & Support](https://cloud.unity.com/home/dashboard-support) page.
 
 ## Table of contents
 - [Bulk download script](#bulk-download-script)
   - [Table of contents](#table-of-contents)
   - [Prerequisites](#prerequisites)
-    - [System requirements](#system-requirements)
+    - [Before you start](#before-you-start)
     - [Licenses](#licenses)
-  - [How do I run the sample ?](#how-do-i-run-the-sample-)
-    - [1. Edit the  `bulk_download.py` script with your requirements](#1-edit-the--bulk_downloadpy-script-with-your-requirements)
-    - [2. Run the script](#2-run-the-script)
+  - [Run the sample](#run-the-sample)
   - [See also](#see-also)
-  - [Tell us what you think!](#tell-us-what-you-think)
+  - [Tell us what you think](#tell-us-what-you-think)
 
 ## Prerequisites
 
-### System requirements
+> **Note**: To download assets from Asset Manager, you need the [`Asset Manager Admin`](https://docs.unity.com/cloud/en-us/asset-manager/org-project-roles#organization-level-roles) role at the organization level or the [`Asset Manager Contributor`]( https://docs.unity.com/cloud/en-us/asset-manager/org-project-roles#project-level-roles) add-on role at the project level. Asset Manager Contributors can update assets only for the specific projects to which they have access.
 
-To run the script, you need:
-- Python installed on your machine
+### Before you start
+
+Before you download assets from Unity Cloud Asset Manager, make sure you have the following:
+
+- Python installed on your machine.
 - An up-to-date Python SDK wheel installed ( > 0.5.0).
-- The right permissions to use Asset Manager. See [Get Started with Asset Manager](https://docs.unity.com/cloud/en-us/asset-manager/get-started) for more details.
-- A source project with assets manager enable and assets already uploaded in it.
+- The required permissions. Read more about [verifying permissions](https://docs.unity.com/cloud/en-us/asset-manager/org-project-roles#verify-your-permissions).
+
+   >  **Note**: Asset Manager roles define the permissions that you have for a single Asset Manager project. Depending on your work, permissions may vary across projects.
+
+- A Unity Cloud source project with the Asset Manager service enabled to download assets. Read more about [creating a project in Unity Cloud](https://docs.unity.com/cloud/en-us/asset-manager/new-asset-manager-project) page.
+
+- A Unity Cloud source project with asset manager service enabled to download assets and assets already uploaded in it. For more information on how to create a new project on Unity Cloud, see the [Create a new project](https://docs.unity.com/cloud/en-us/asset-manager/new-asset-manager-project) page.
 
 ### Licenses
 
-The bulk download sample script is made available under the [Unity ToS license](../LICENSE.md).
+The bulk download sample script is provided under the [Unity ToS license](../LICENSE.md).
 
-## How do I run the sample ?
+## Run the sample
 
 To run the sample, follow these steps:
 
-### 1. Edit the  `bulk_download.py` script with your requirements
+1. Link the sample to your project by editing the following information in the `main` conditional section of the `bulk_download.py` script.
 
-In the `main` conditional section, you must edit some information to link the sample to your project.
+   - org_id: Enter your organization ID.
+   - project_id: Enter your project ID.
+   - download_directory: Enter the path to the directory where you download the assets.
+   - overwrite: Set to `True` to overwrite already existing files in the download directory. If you set it to `False`, the script skips the download process for existing files.
+   - include_filter, exclude_filter, or any_filter: If you want to add include, exclude, or any filters to your request, build them as described in the [Unity Cloud Python SDK](https://docs.unity.com/cloud/en-us/asset-manager/python-sdk/manage-assets#create-filter-for-a-search-query) documentation.
+   
+   >  **Note**: The script contains commented code that shows an example of filter usage to help you with the integration of custom filters. However, these comments do not cover the entire filter creation process. For comprehensive details, see the [Unity Cloud Python SDK](https://docs.unity.com/cloud/en-us/asset-manager/python-sdk/manage-assets#create-filter-for-a-search-query) documentation. 
+   
+   - collections: Fill the `collections` list with the names of those collections from which you want to fetch your assets. Leave the `collections` list empty if you want to search through the whole project.
 
-- org_id: Your organization id.
-- project_id: Your project id.
-- download_directory: must be edited with the path where the assets will be downloaded.
-- overwrite: When set to `True`, the script will overwrite the files in the download directory if they already exist. Otherwise, it will skip the download.
-- include_filter/exclude_filter/any_filter: This dictionary contains the search criteria to fetch the assets. Some example are written in comments, otherwise please refer to [the Python SDK documentation](https://docs.unity.com/cloud/en-us/asset-manager/python-sdk/manage-assets#create-filter-for-a-search-query) to learn how to use search criteria.
-- collections: This list contains the collections to fetch the assets from. Leave it empty to search through all the assets in the project.
+2. Run the script:
 
-### 2. Run the script
-
-With you favorite command line tool, run `python bulk_download.py` in this folder.
+   1. Go to the current folder with a command line tool.
+   2. Run the following command:  `python bulk_download.py`.
 
 ## See also
 
-- [Unity Cloud Python SDK documentation](https://docs.unity.com/cloud/en-us/asset-manager/python-sdk)
+For more information, see the [Unity Cloud Python SDK](https://docs.unity.com/cloud/en-us/asset-manager/python-sdk) documentation.
 
-## Tell us what you think!
+## Tell us what you think
 
-Thank you for taking a look at the project! To help us improve and provide greater value, please consider providing feedback in our [Help & Support page](https://cloud.unity.com/home/dashboard-support). Thank you!
+Thank you for exploring our project! Please help us improve and deliver greater value by providing your feedback in our [Help & Support](https://cloud.unity.com/home/dashboard-support) page. We appreciate your input!
