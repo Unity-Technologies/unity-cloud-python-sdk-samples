@@ -1,7 +1,8 @@
 import argparse
 import platform
 import json
-from shared.utils import OperationSystem, download_wheel, pip_install_wheel, pip_install_other_libraries, \
+
+from shared.utils import OperationSystem, pip_install_unity_cloud, pip_install_other_libraries, \
     check_install_requirements, check_python_version
 import os
 
@@ -13,10 +14,9 @@ def read_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--install", action="store_true", help="Install the requirements for the tool")
     parser.add_argument("--create", action="store_true", help="Bulk create assets in the cloud")
-    parser.add_argument("--config-write", action="store_true",
-                        help="Write the configuration file instead of running the action. Use with --create.", default=False)
     parser.add_argument("--config-select", action="store_true",help="Select a configuration file to run. Use with --create.", default=False)
     parser.add_argument("--config", type=str, help="Path to the configuration file. Use with --create.", default=None)
+    parser.add_argument("--delete", action="store_true", help="Delete assets in a specific project.")
 
     args = parser.parse_args()
     return args
@@ -36,35 +36,20 @@ def get_current_os():
 
 def install_requirements():
     current_os = get_current_os()
-    download_wheel(wheels_path, current_os, False)
-    pip_install_wheel(wheels_path, current_os)
+    pip_install_unity_cloud()
     pip_install_other_libraries()
 
 
-def run_bulk_assets_creation(interactive=False, config=None, write_config=False, config_select=False):
-
-    if config_select:
-        from bulk_upload import interactive_runner
-        interactive_runner.run_with_config_select()
-    elif interactive or write_config:
-        from bulk_upload import interactive_runner
-        interactive_runner.run(write_config=write_config)
-    else:
-        if config is None:
-            raise Exception("Configuration file must be provided when running in non-interactive mode.")
-        from bulk_upload import models, assets_uploader
-        creation_config = models.ProjectUploaderConfig()
-        with open(config, "r") as f:
-            creation_config.load_from_json(json.load(f))
-        uploader = assets_uploader.ProjectUploader()
-        uploader.run(creation_config)
+def run_bulk_assets_creation(config=None, select_config=False):
+    from bulk_upload import bulk_upload_pipeline
+    pipeline = bulk_upload_pipeline.BulkUploadPipeline()
+    pipeline.run(config, select_config)
 
 
 if __name__ == "__main__":
     arguments = read_arguments()
 
     config = arguments.config
-    write_config = arguments.config_write
     config_select = arguments.config_select
     interactive = False
 
@@ -83,21 +68,19 @@ if __name__ == "__main__":
         print("It seems that the requirements are not installed. Please run the script with --install first")
         exit(1)
 
+    if arguments.delete:
+        import bulk_upload.asset_deleter as asset_deleter
+        asset_deleter.delete_assets_in_project()
+        exit(0)
+
     if not arguments.create and not arguments.install:
-        print("No action specified. Please always use --create.")
+        print("No action specified. Use --create to start a bulk creation.")
         exit(1)
-
-    if config is None and not write_config and not config_select:
-        print("No config options provided. Interactive mode will be used.")
-        interactive = True
-
-    if config is not None and write_config:
-        raise Exception("Both --config and --write-config cannot be used at the same time.")
 
     if config is not None and not os.path.exists(config):
         raise Exception("Configuration file not found.")
 
     if arguments.create:
-        run_bulk_assets_creation(interactive, config, write_config, config_select)
+        run_bulk_assets_creation(config, config_select)
     else:
-        print("No action specified. Please always use --create.")
+        print("No action specified. Use --create to start a bulk creation.")
