@@ -1,13 +1,12 @@
-import json
 import logging
+import time
 
-import unity_cloud as uc
 import unity_cloud.assets.asset_reference
 
 from bulk_upload.asset_mappers import *
+from bulk_upload.models import *
 from concurrent.futures import ThreadPoolExecutor, wait
 from unity_cloud.models import *
-from pathlib import PurePath, PurePosixPath
 
 
 logger = logging.getLogger(__name__)
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class AssetUploader(ABC):
     @abstractmethod
-    def upload_assets(self, asset_infos: [AssetInfo], config: ProjectUploaderConfig):
+    def upload_assets(self, asset_infos: [AssetInfo], config: ProjectUploaderConfig, app_settings: AppSettings):
         pass
 
 
@@ -25,7 +24,7 @@ class CloudAssetUploader(AssetUploader):
         self.config = None
         self.futures = list()
 
-    def upload_assets(self, asset_infos: [AssetInfo], config: ProjectUploaderConfig):
+    def upload_assets(self, asset_infos: [AssetInfo], config: ProjectUploaderConfig, app_settings: AppSettings):
         self.config = config
 
         cloud_assets = [] if config.strategy == Strategy.CLOUD_ASSET else uc.assets.get_asset_list(self.config.org_id, self.config.project_id)
@@ -42,7 +41,7 @@ class CloudAssetUploader(AssetUploader):
                     asset.is_frozen_in_cloud = project_asset.is_frozen
                     break
 
-        with ThreadPoolExecutor(max_workers=self.config.amount_of_parallel_uploads) as executor:
+        with ThreadPoolExecutor(max_workers=app_settings.parallel_creation_edit) as executor:
             for asset in asset_infos:
                 if not asset.already_in_cloud:
                     self.futures.append(executor.submit(self.create_asset, asset))
@@ -53,25 +52,28 @@ class CloudAssetUploader(AssetUploader):
         self.futures = list()
 
         print("Setting asset dependencies", flush=True)
-        with ThreadPoolExecutor(max_workers=self.config.amount_of_parallel_uploads) as executor:
+        with ThreadPoolExecutor(max_workers=app_settings.parallel_creation_edit) as executor:
             for asset in asset_infos:
                 self.futures.append(executor.submit(self.set_asset_references, asset, asset_infos))
 
         wait(self.futures)
         self.futures = list()
 
+        #sleep for 5 seconds to allow the asset to be created with their dataset
+        time.sleep(5)
+
         if self.config.update_files and self.config.strategy == Strategy.CLOUD_ASSET:
             self.config.update_files = False
             print("File update not supported for cloud assets, skipping file upload", flush=True)
-        with ThreadPoolExecutor(max_workers=self.config.amount_of_parallel_uploads) as executor:
+        with ThreadPoolExecutor(max_workers=app_settings.parallel_asset_upload) as executor:
             for asset in asset_infos:
                 if not asset.already_in_cloud or self.config.update_files:
-                    self.futures.append(executor.submit(self.upload_asset_files, asset))
+                    self.futures.append(executor.submit(self.upload_asset_files, asset, app_settings))
 
         self.futures = list()
 
         print("Setting tags and collections for assets", flush=True)
-        with ThreadPoolExecutor(max_workers=self.config.amount_of_parallel_uploads) as executor:
+        with ThreadPoolExecutor(max_workers=app_settings.parallel_creation_edit) as executor:
             for asset in asset_infos:
                 self.futures.append(executor.submit(self.set_asset_decorations, asset))
 
@@ -108,7 +110,7 @@ class CloudAssetUploader(AssetUploader):
             print(f'Failed to create new version for asset: {asset.name}', flush=True)
             print(e, flush=True)
 
-    def upload_asset_files(self, asset: AssetInfo):
+    def upload_asset_files(self, asset: AssetInfo, app_settings: AppSettings):
         try:
 
             dataset_id = uc.assets.get_dataset_list(self.config.org_id, self.config.project_id, asset.am_id, asset.version)[0].id
@@ -118,7 +120,7 @@ class CloudAssetUploader(AssetUploader):
 
             print(f"Uploading files for asset: {asset.name}", flush=True)
             files_upload_futures = []
-            with ThreadPoolExecutor(max_workers=200) as executor:
+            with ThreadPoolExecutor(max_workers=app_settings.parallel_file_upload_per_asset) as executor:
                 for file in asset.files:
                     files_upload_futures.append(executor.submit(self.upload_file, asset, dataset_id, file))
 
@@ -203,7 +205,8 @@ class CloudAssetUploader(AssetUploader):
             for metadata_field in asset.customization.metadata:
                 asset_update.metadata[metadata_field.field_definition] = metadata_field.field_value
 
-        if asset.customization.description is not None:
+        if asset.customization.description is not None and asset.customization.description != "":
+            print(asset.customization.description)
             asset_update.description = asset.customization.description
 
         try:

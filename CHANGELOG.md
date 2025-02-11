@@ -5,6 +5,23 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-02-04
+
+### Added
+- Added the column description in the csv to allow edit of individual asset descriptions.
+- Add multiple user input validations during the interactive config mode.
+- Added `app_settings.json` file to configure applications amount of parallel workers and environment variables when needed.
+
+### Changed
+- Organizations and projects are now selected via a list in the interactive config mode and delete mode.
+
+### Fixed
+- Bug with special characters when reading CSV files.
+- Bug with boolean metadata always being read as false.
+- CSV generated headlessly now respect the same template as CSV generated in an interactive run.
+- Relative path used to indicate assets location are now supported.
+- Fix tags and collection not being added to config when saving it.
+
 ## [0.2.0] - 2024-11-19
 
 ### Added

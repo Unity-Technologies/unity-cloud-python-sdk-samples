@@ -1,0 +1,6 @@
+{
+    "parallelCreationEdit": 20,
+    "parallelAssetUpload": 2,
+    "parallelFileUploadPerAsset": 5,
+    "environmentVariables": {}
+}

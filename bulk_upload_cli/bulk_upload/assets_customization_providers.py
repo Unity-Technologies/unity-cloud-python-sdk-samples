@@ -21,8 +21,9 @@ class InteractiveAssetCustomizer(AssetCustomizationProvider):
             asset_customization.tags.append(PurePath(config.assets_path).name.replace(".unitypackage", ""))
 
         asset_customization.collection = self.get_collection(config.org_id, config.project_id)
-        #asset_customization.metadata = self.get_metadata()
 
+        config.tags = asset_customization.tags
+        config.collection = asset_customization.collection
         for asset in assets:
             asset.customization.tags = asset_customization.tags
             asset.customization.collection = asset_customization.collection

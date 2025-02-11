@@ -1,9 +1,6 @@
 import os.path
-import shutil
 import sys
-import urllib.request
 import re
-import glob
 import subprocess
 from enum import Enum
 
@@ -64,6 +61,16 @@ def log_error(msg: str):
 
 
 def pip_install_unity_cloud():
+    try:
+        version_check_command = [sys.executable, "-m", "pip", "show", "unity_cloud"]
+        version_check_output = subprocess.run(version_check_command, check=True, capture_output=True, text=True)
+        version = re.search(r"Version: (\d+\.\d+\.\d+)", version_check_output.stdout).group(1)
+        if version > sdk_version:
+            sys.stderr.write(f"Unity Cloud SDK already installed with the correct version.")
+            return
+    except subprocess.CalledProcessError:
+        pass
+
     install_command = [sys.executable, "-m", "pip", "install", "--index-url",
                         "https://unity3ddist.jfrog.io/artifactory/api/pypi/am-pypi-prod-local/simple",
                         f"unity-cloud=={sdk_version}", "--force-reinstall"]
