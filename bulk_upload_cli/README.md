@@ -19,6 +19,8 @@ Find and connect support services on the [Help & Support](https://cloud.unity.co
 	- [Creating a csv from a Unity Cloud project](#creating-a-csv-from-a-unity-cloud-project)
     - [Editing metadata in the csv file](#editing-metadata-in-the-csv-file)
     - [Use an existing configuration file](#use-an-existing-configuration-file)
+    - [Fine-tune the asset creation and upload](#fine-tune-the-asset-creation-and-upload)
+  - [Troubleshoot](#troubleshoot)
   - [See also](#see-also)
   - [Tell us what you think](#tell-us-what-you-think)
 
@@ -62,10 +64,10 @@ The bulk upload sample script is provided under the [Unity ToS license](../LICEN
 
 ### Select the input method
 
-If you have a CSV respecting the template, when prompted about it, you can select yes and provide the path to the CSV file. Otherwise, you will be prompted about your assets location.
-
 Select one of the three strategies as the input method for bulk asset creation:
 
+- **listed in a casv respecting the CLI tool template**: Select this option if you built a CSV listing your assets location and details using the provided template.
+  * Provide the path to the csv file.
 - **in a .unitypackage file**: Select this option if your assets are in a .unitypackage file. The tool extracts the assets from the .unitypackage file and uploads them to the cloud.
   * Provide the path to the .unitypackage file.
 - **in a local unity project**: Select this option if your assets are in a local Unity project.
@@ -124,6 +126,21 @@ To use an existing configuration file, follow these steps:
 2. At the end, when prompted to create a configuration file, answer yes and give it a name of your choice.
 3. On the next run with the `--create` flag, you can add the `--config` flag followed by the name of the configuration file you created. All the answers you gave during the first run will be loaded from the configuration file.
 4. Alternatively, you can use the `--config-select` flag to select a configuration file from the list of existing configuration files.
+
+### Fine-tune the asset creation and upload
+
+With the `app_settings.json` file, you can fine-tune the amount of assets created and uploaded in parallel. Depending on your network, the number of assets, and the size of the assets, you can adjust the following settings:
+- `parallelCreationEdit`: The number of assets created and updated in parallel. This settings can be kept high as it is not resource intensive.
+- `parallelAssetUpload`: The number of assets that will have their files uploaded in parallel. This setting should be adjusted depending on the size of the assets and the network speed. When dealing with large files (>100MB), it is recommended to keep this setting low (1-2) to avoid time out.
+- `parallelFileUploadPerAsset`: The number of files uploaded in parallel for each asset. This setting should be adjusted depending on the number of files and the network speed. It is recommended to adjust it according to `parallelAssetUpload`, as the total number of files uploaded in parallel will be `parallelAssetUpload * parallelFileUploadPerAsset`.
+
+In the `app_settings.json` file, you can also add environment variables that will be set at runtime. This is useful when running the CLI tool in a private network environment.
+
+## Troubleshoot
+
+Here's a list of common problems you might encounter while using the CLI Tool.
+- `error ModuleNotFoundError: No module named ...`: This can be caused by a uncompleted installation. Start by uninstalling `unity_cloud` with `pip(3) uninstall unity_cloud`, then re-run the CLI tool installation.
+- Timeout exception during the upload step: When uploading large files, it is recommended to lower the amount of parallel uploads allowed. To do so, refer to the [Fine-tune the asset creation and upload](#fine-tune-the-asset-creation-and-upload) section.
 
 ## See also
 For more information, see the [Unity Cloud Python SDK](https://docs.unity.com/cloud/en-us/asset-manager/python-sdk) documentation.

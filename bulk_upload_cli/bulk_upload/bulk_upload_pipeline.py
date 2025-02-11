@@ -1,7 +1,8 @@
 import unity_cloud as uc
+import os
 
 from bulk_upload.config_providers import InteractiveConfigProvider, FileConfigProvider, SelectConfigProvider
-from bulk_upload.models import ProjectUploaderConfig, Strategy, DependencyStrategy
+from bulk_upload.models import ProjectUploaderConfig, Strategy, DependencyStrategy, AppSettings
 from bulk_upload.asset_mappers import NameGroupingAssetMapper, FolderGroupingAssetMapper, UnityPackageAssetMapper, \
     UnityProjectAssetMapper, SingleFileAssetMapper, CsvAssetMapper, CloudAssetMapper
 from bulk_upload.assets_uploaders import AssetUploader, CloudAssetUploader
@@ -39,6 +40,10 @@ class BulkUploadPipeline:
             uc.identity.user_login.login()
 
     def run(self, config_file=None, select_config=False):
+        app_settings = AppSettings()
+        app_settings.load_from_json()
+        self.set_environment_variables(app_settings)
+
         is_headless_run = config_file is not None or select_config
 
         # Step 1: Get base the configuration
@@ -69,10 +74,15 @@ class BulkUploadPipeline:
 
         # Step 7: Upload
         asset_uploader = self.get_asset_uploader(config)
-        asset_uploader.upload_assets(assets, config)
+        asset_uploader.upload_assets(assets, config, app_settings)
 
         # Step 8: Post upload actions, Clean up
         asset_mapper.clean_up()
+
+    @staticmethod
+    def set_environment_variables(app_settings: AppSettings):
+        for key, value in app_settings.environment_variables.items():
+            os.environ[key] = value
 
     @staticmethod
     def get_config_provider(select_config=False, config_file=None):

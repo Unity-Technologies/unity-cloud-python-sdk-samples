@@ -104,8 +104,9 @@ class FolderGroupingAssetMapper(AssetMapper):
 
     def map_assets(self, config: ProjectUploaderConfig) -> [AssetInfo]:
 
-        hierarchical_level = int(config.hierarchical_level) + os.path.abspath(config.assets_path).count(os.sep)
-        folders = [x[0] for x in os.walk(config.assets_path) if x[0].count(os.sep) == hierarchical_level]
+        abs_path = os.path.abspath(config.assets_path)
+        hierarchical_level = int(config.hierarchical_level) + abs_path.count(os.sep)
+        folders = [x[0] for x in os.walk(abs_path) if x[0].count(os.sep) == hierarchical_level]
 
         if len(folders) == 0:
             print(f"No folders found in the assets path. Only the root folder will be considered as an asset")
@@ -116,7 +117,7 @@ class FolderGroupingAssetMapper(AssetMapper):
             asset_name = PurePath(folder).name
             assets[asset_name] = AssetInfo(asset_name)
 
-            files = [get_file_info(PurePath(f), config.assets_path) for x in os.walk(folder) for f in glob(os.path.join(x[0], '*'))]
+            files = [get_file_info(PurePath(f), abs_path) for x in os.walk(folder) for f in glob(os.path.join(x[0], '*'))]
             # remove files with excluded extensions
             files = [f for f in files if not any(f.path.suffix.endswith(ext) for ext in config.excluded_file_extensions)]
             assets[asset_name].files = files
@@ -129,7 +130,7 @@ class FolderGroupingAssetMapper(AssetMapper):
                     asset.files.remove(file)
 
                 if config.preview_detection and self.is_preview_file(file.path):
-                    asset.preview_files.append(get_file_info(file.path, config.assets_path))
+                    asset.preview_files.append(get_file_info(file.path, abs_path))
                     asset.files.remove(file)
 
         return list(assets.values())
@@ -219,6 +220,7 @@ class SingleFileAssetMapper(AssetMapper):
         pass
 
     def map_assets(self, config: ProjectUploaderConfig) -> [AssetInfo]:
+        absolute_path = os.path.abspath(config.assets_path)
         # find all files in the assets folder and sub folders
         files = [y for x in os.walk(config.assets_path) for y in glob(os.path.join(x[0], '*'))]
         # remove files with excluded extensions
@@ -247,7 +249,7 @@ class SingleFileAssetMapper(AssetMapper):
 
             file_path = PurePath(file)
             asset = AssetInfo(os.path.basename(file))
-            asset.files.append(FileInfo(file_path, config.assets_path))
+            asset.files.append(FileInfo(file_path, PurePosixPath(file_path.relative_to(config.assets_path))))
 
             if file_path.stem.lower() in potential_previews:
                 preview_file = potential_previews[file_path.stem.lower()]
@@ -285,7 +287,7 @@ class CsvAssetMapper(AssetMapper):
 
     def map_assets(self, config: ProjectUploaderConfig) -> [AssetInfo]:
         assets = []
-        with open(config.assets_path, 'r') as file:
+        with open(config.assets_path, 'r', encoding='utf-8') as file:
             reader = csv.DictReader(file)
             input_row = next(reader)
 

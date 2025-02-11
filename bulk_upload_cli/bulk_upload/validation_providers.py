@@ -34,14 +34,15 @@ class InteractiveCSVValidationProvider(ValidationProvider):
                 file.truncate(0)
                 writer = csv.writer(file)
 
-                header_row = ["Input", "Name", "Unity Infos", "Files", "Dependencies", "Collection", "Tags", "Preview"]
+                header_row = ["Input", "Name", "Unity Infos", "Files", "Dependencies", "Description", "Collection", "Tags", "Preview"]
                 for metadata_column in metadata_columns:
                     header_row.append(metadata_column)
                 writer.writerow(header_row)
                 writer.writerow(
                     [f"{config.strategy.value}?{config.assets_path}", "The name the asset will have in Unity Cloud",
                      "The informations about the asset in Unity and Unity Cloud",
-                     "The files that will be uploaded, with the format \"<file path on the computer>:<filepath in the cloud>\"",
+                     "The files that will be uploaded, with the format \"<file path on the computer> : <filepath in the cloud>\"",
+                     "The description of the asset",
                      "The dependencies of the asset. For embedded dependencies, use the file column instead.",
                      "The collection the asset will be linked to", "The tags that will be applied to the asset",
                      "The preview of the asset, with the format \"<file path on the computer>:<filepath in the cloud>\""])
@@ -65,7 +66,7 @@ class InteractiveCSVValidationProvider(ValidationProvider):
 
             # re-read csv file and update assets
             assets = []
-            with open('validation.csv', mode='r') as file:
+            with open('validation.csv', mode='r', encoding='utf-8') as file:
                 dict_reader = csv.DictReader(file)
                 next(dict_reader)  # skip header
                 for row in dict_reader:
@@ -103,12 +104,36 @@ class InteractiveCSVValidationProvider(ValidationProvider):
 class HeadlessCSVValidationProvider(ValidationProvider):
     def validate_assets(self, assets: [AssetInfo], config: ProjectUploaderConfig) -> [AssetInfo]:
         try:
+            metadata_columns = []
+            for asset in assets:
+                for metadata in asset.customization.metadata:
+                    if metadata.field_definition not in metadata_columns:
+                        metadata_columns.append(metadata.field_definition)
+
             with open("validation.csv", mode="w", newline="") as file:
+                file.truncate(0)
                 writer = csv.writer(file)
-                writer.writerow(["Name", "Unity ID", "Files", "Dependencies", "Collection", "Tags"])
+
+                header_row = ["Input", "Name", "Unity Infos", "Files", "Dependencies", "Description", "Collection",
+                              "Tags", "Preview"]
+                for metadata_column in metadata_columns:
+                    header_row.append(metadata_column)
+                writer.writerow(header_row)
+                writer.writerow(
+                    [f"{config.strategy.value}?{config.assets_path}", "The name the asset will have in Unity Cloud",
+                     "The informations about the asset in Unity and Unity Cloud",
+                     "The files that will be uploaded, with the format \"<file path on the computer>:<filepath in the cloud>\"",
+                     "The description of the asset",
+                     "The dependencies of the asset. For embedded dependencies, use the file column instead.",
+                     "The collection the asset will be linked to", "The tags that will be applied to the asset",
+                     "The preview of the asset, with the format \"<file path on the computer>:<filepath in the cloud>\""])
+
+
+
                 for asset in assets:
-                    writer.writerow(asset.to_csv_row())
+                    writer.writerow(asset.to_csv_row(metadata_columns))
         except Exception as e:
             print("An error occurred while writing the .csv file, the program will skip it.")
+            print(e, flush=True)
 
         return assets

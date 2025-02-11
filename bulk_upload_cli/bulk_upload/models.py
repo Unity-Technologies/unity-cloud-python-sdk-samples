@@ -32,7 +32,6 @@ class ProjectUploaderConfig(object):
         self.project_id = ""
         self.key_id = ""
         self.key = ""
-        self.amount_of_parallel_uploads = 15
         self.collection = ""
         self.tags = []
         self.case_sensitive = False
@@ -52,7 +51,6 @@ class ProjectUploaderConfig(object):
         self.project_id = config_json.get("projectId", "")
         self.key_id = config_json.get("serviceAccount", dict()).get("keyId", None)
         self.key = config_json.get("serviceAccount", dict()).get("key", None)
-        self.amount_of_parallel_uploads = config_json.get("amountOfParallelUploads", 15)
         self.collection = config_json.get("collectionToLinkAssetTo", None)
         self.tags = config_json.get("tagsToApplyToAssets", [])
         self.case_sensitive = config_json.get("assetNameCaseSensitive", False)
@@ -87,7 +85,6 @@ class ProjectUploaderConfig(object):
         "keyId": "{self.key_id}",
         "key": "{self.key}"
     }},
-    "amountOfParallelUploads": {self.amount_of_parallel_uploads},
     "collectionToLinkAssetTo": "{self.collection}",
     "tagsToApplyToAssets": {json.dumps(self.tags)},
     "assetNameCaseSensitive": {self.case_sensitive.__str__().lower()},
@@ -96,6 +93,40 @@ class ProjectUploaderConfig(object):
     "description": {json.dumps(self.description)},
     "hierarchicalLevel": {self.hierarchical_level},
     "previewDetection": {self.preview_detection.__str__().lower()}
+}}
+"""
+
+
+class AppSettings(object):
+    DEFAULT_PARALLEL_CREATION_EDIT = 20
+    DEFAULT_PARALLEL_ASSET_UPLOAD = 2
+    DEFAULT_PARALLEL_FILE_UPLOAD_PER_ASSET = 5
+
+    def __init__(self):
+        self.parallel_creation_edit = self.DEFAULT_PARALLEL_CREATION_EDIT
+        self.parallel_asset_upload = self.DEFAULT_PARALLEL_ASSET_UPLOAD
+        self.parallel_file_upload_per_asset = self.DEFAULT_PARALLEL_FILE_UPLOAD_PER_ASSET
+        self.environment_variables = {}
+
+    def load_from_json(self):
+        if not os.path.exists("app_settings.json"):
+            with open("app_settings.json", "w") as f:
+                f.write(self.to_json())
+            return
+
+        with open("app_settings.json") as json_file:
+            data = json.load(json_file)
+            self.parallel_creation_edit = data.get("parallelCreationEdit", self.DEFAULT_PARALLEL_CREATION_EDIT)
+            self.parallel_asset_upload = data.get("parallelAssetUpload", self.DEFAULT_PARALLEL_ASSET_UPLOAD)
+            self.parallel_file_upload_per_asset = data.get("parallelFileUploadPerAsset", self.DEFAULT_PARALLEL_FILE_UPLOAD_PER_ASSET)
+            self.environment_variables = data.get("environmentVariables", {})
+
+    def to_json(self):
+        return rf"""{{
+    "parallelCreationEdit": {self.parallel_creation_edit},
+    "parallelAssetUpload": {self.parallel_asset_upload},
+    "parallelFileUploadPerAsset": {self.parallel_file_upload_per_asset},
+    "environmentVariables": {self.environment_variables}
 }}
 """
 
@@ -131,8 +162,9 @@ class AssetInfo(object):
 
         unity_info_csv = f"UnityId:{self.unity_id}\nUnityCloudId:{self.am_id}\nVersionId:{self.version}\nFrozen:{self.is_frozen_in_cloud}"
 
-        asset_csv = ["", self.name, unity_info_csv, f'{files_csv}', f'{dependencies_csv}', self.customization.collection,
-                f'{tags_csv}', f'{preview_files_csv}']
+        asset_csv = ["", self.name, unity_info_csv, f'{files_csv}', f'{dependencies_csv}',
+                     self.customization.description, self.customization.collection,
+                     f'{tags_csv}', f'{preview_files_csv}']
 
         for metadata_column in metadata_columns:
             metadata_value = next((metadata.field_value for metadata in self.customization.metadata if metadata.field_definition == metadata_column), "")
@@ -177,6 +209,7 @@ class AssetInfo(object):
             self.dependencies = [int(dependency) - 2 for dependency in dependency_csv.split(",")]
 
         self.customization.collection = csv_row.get("Collection", "")
+        self.customization.description = csv_row.get("Description", "")
 
         tags_csv = csv_row.get("Tags", "")
         self.customization.tags = tags_csv.split(",")
@@ -190,7 +223,7 @@ class AssetInfo(object):
 
         for key, value in csv_row.items():
             if key in ["Input", "Name", "Unity Infos", "Frozen", "Files", "Dependencies", "Collection", "Tags",
-                       "Preview"]:
+                       "Preview", "Description"]:
                 continue
 
             if value == "" or value is None:
@@ -204,7 +237,7 @@ class AssetInfo(object):
             elif value.startswith("[") and value.endswith("]"):
                 metadata.field_value = [v.replace("'", "") for v in value[1:-1].split("', '")]
             elif value.lower() == "true" or value.lower() == "false":
-                metadata.field_value = value.lower == "true"
+                metadata.field_value = value.lower() == "true"
             else:
                 metadata.field_value = float(value) if value.replace(".", "", 1).isdigit() else value
 

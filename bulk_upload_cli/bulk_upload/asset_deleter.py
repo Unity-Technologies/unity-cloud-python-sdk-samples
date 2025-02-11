@@ -39,8 +39,22 @@ def delete_assets_in_project():
     key_id, key = ask_for_login()
     login(key_id, key)
 
-    org_id = inquirer.text(message="Enter your organization ID:").execute()
-    project_id = inquirer.text(message="Enter your project ID:").execute()
+    organizations = uc.identity.get_organization_list()
+    if len(organizations) == 0:
+        print("No organizations found. Please create an organization first.")
+        exit(1)
+    org_selected = inquirer.select(message="Select an organization:",
+                                   choices=[org.name for org in organizations]).execute()
+    org_id = [org.id for org in organizations if org.name == org_selected][0]
+
+    projects = uc.identity.get_project_list(org_id)
+    if len(projects) == 0:
+        print("No projects found. Please create a project first.")
+        exit(1)
+
+    selected_project = inquirer.select(message="Select a project:",
+                                       choices=[project.name for project in projects]).execute()
+    project_id = [project.id for project in projects if project.name == selected_project][0]
 
     project_assets = uc.assets.get_asset_list(org_id, project_id)
     confirm = inquirer.confirm(message=f"Are you sure you want to delete {len(project_assets)} assets?").execute()
