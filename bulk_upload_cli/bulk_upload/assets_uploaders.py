@@ -51,16 +51,16 @@ class CloudAssetUploader(AssetUploader):
         wait(self.futures)
         self.futures = list()
 
+        #sleep for 10 seconds to allow the asset to be created with their dataset
+        time.sleep(10)
+
         print("Setting asset dependencies", flush=True)
         with ThreadPoolExecutor(max_workers=app_settings.parallel_creation_edit) as executor:
             for asset in asset_infos:
                 self.futures.append(executor.submit(self.set_asset_references, asset, asset_infos))
 
-        wait(self.futures)
-        self.futures = list()
-
-        #sleep for 5 seconds to allow the asset to be created with their dataset
-        time.sleep(5)
+            wait(self.futures)
+            self.futures = list()
 
         if self.config.update_files and self.config.strategy == Strategy.CLOUD_ASSET:
             self.config.update_files = False
@@ -79,7 +79,8 @@ class CloudAssetUploader(AssetUploader):
 
         wait(self.futures)
 
-        print("Done uploading assets")
+        action = "uploading"
+        print(f"Done {action} assets")
 
     def validate_config(self):
         print("Validating configuration..", flush=True)
@@ -91,7 +92,7 @@ class CloudAssetUploader(AssetUploader):
 
     def create_asset(self, asset: AssetInfo):
         try:
-            print(f"Creating asset: {asset.name} in cloud", flush=True)
+            print(f"Creating asset: {asset.name}", flush=True)
             asset_creation = AssetCreation(name=asset.name, type= AssetType.OTHER if len(asset.files) == 0 else self.get_asset_type(asset.files[0].cloud_path))
             created_asset = uc.assets.create_asset(asset_creation, self.config.org_id, self.config.project_id)
             asset.am_id = created_asset.id
@@ -195,7 +196,7 @@ class CloudAssetUploader(AssetUploader):
             print(f'Failed to set references for asset: {asset.name}', flush=True)
             logger.exception(e)
 
-    def set_asset_decorations(self, asset: AssetInfo):
+    def set_asset_decorations(self, asset: AssetInfo, skip_freeze: bool = False):
         asset_update = AssetUpdate(name=asset.name)
 
         if len(asset.customization.tags) > 0:
@@ -219,8 +220,9 @@ class CloudAssetUploader(AssetUploader):
             uc.assets.link_assets_to_collection(self.config.org_id, self.config.project_id, asset.customization.collection,
                                                 [asset.am_id])
 
-        uc.assets.freeze_asset_version(self.config.org_id, self.config.project_id, asset.am_id, asset.version,
-                                       "new version")
+        if not skip_freeze:
+            uc.assets.freeze_asset_version(self.config.org_id, self.config.project_id, asset.am_id, asset.version,
+                                           "new version")
 
     def get_asset_type(self, cloud_path: PurePosixPath) -> AssetType:
         suffix = cloud_path.suffix.lower()

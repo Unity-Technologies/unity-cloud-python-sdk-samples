@@ -1,14 +1,16 @@
 from InquirerPy import inquirer
+from shared.utils import execute_prompt
+
 import unity_cloud as uc
 
 
 def ask_for_login():
-    login_type = inquirer.select(message="Choose authentication method?",
-                                 choices=["User login", "Service account"]).execute()
+    login_type = execute_prompt(inquirer.select(message="Choose authentication method?",
+                                 choices=["User login", "Service account"]))
 
     if login_type == "Service account":
-        key_id = inquirer.text(message="Enter your key ID:").execute()
-        key = inquirer.secret(message="Enter your key:").execute()
+        key_id = execute_prompt(inquirer.text(message="Enter your key ID:"))
+        key = execute_prompt(inquirer.secret(message="Enter your key:"))
 
         return key_id, key
 
@@ -43,8 +45,8 @@ def delete_assets_in_project():
     if len(organizations) == 0:
         print("No organizations found. Please create an organization first.")
         exit(1)
-    org_selected = inquirer.select(message="Select an organization:",
-                                   choices=[org.name for org in organizations]).execute()
+    org_selected = execute_prompt(inquirer.select(message="Select an organization:",
+                                   choices=[org.name for org in organizations]))
     org_id = [org.id for org in organizations if org.name == org_selected][0]
 
     projects = uc.identity.get_project_list(org_id)
@@ -52,12 +54,12 @@ def delete_assets_in_project():
         print("No projects found. Please create a project first.")
         exit(1)
 
-    selected_project = inquirer.select(message="Select a project:",
-                                       choices=[project.name for project in projects]).execute()
+    selected_project = execute_prompt(inquirer.select(message="Select a project:",
+                                       choices=[project.name for project in projects]))
     project_id = [project.id for project in projects if project.name == selected_project][0]
 
     project_assets = uc.assets.get_asset_list(org_id, project_id)
-    confirm = inquirer.confirm(message=f"Are you sure you want to delete {len(project_assets)} assets?").execute()
+    confirm = execute_prompt(inquirer.confirm(message=f"Are you sure you want to delete {len(project_assets)} assets?"))
     if not confirm:
         print("Deletion canceled. Program will exit.")
         exit(0)

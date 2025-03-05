@@ -6,9 +6,13 @@ import csv
 import unity_cloud as uc
 
 from abc import ABC, abstractmethod
-from glob import glob
 from pathlib import PurePath, PurePosixPath, Path
 from bulk_upload.models import AssetInfo, FileInfo, ProjectUploaderConfig, Strategy, Metadata
+from bulk_upload.file_explorers import FileExplorer
+
+
+def is_directory_path(file_path) -> bool:
+    return len(file_path.name.split("/")[-1].split(".")) == 1
 
 
 class AssetMapper(ABC):
@@ -23,16 +27,19 @@ class AssetMapper(ABC):
 
 class UnityProjectAssetMapper(AssetMapper):
 
+    def __init__(self, file_explorer: FileExplorer):
+        self.file_explorer = file_explorer
+
     def map_assets(self, config: ProjectUploaderConfig) -> [AssetInfo]:
-        files = [y for x in os.walk(config.assets_path) for y in glob(os.path.join(x[0], '*'))]
+        files = self.file_explorer.list_files(config.assets_path)
         # remove files with excluded extensions
-        files = [f for f in files if not any(f.endswith(ext) for ext in config.excluded_file_extensions)]
+        files = [f for f in files if not any(f.suffix.endswith(ext) for ext in config.excluded_file_extensions)]
 
         assets = dict()
         for f in files:
-            if os.path.isdir(f):
+            if self.is_directory_path(f):
                 continue
-            if f.endswith(".meta"):  # meta file should not be considered as an asset alone
+            if f.name.endswith(".meta"):  # meta file should not be considered as an asset alone
                 continue
 
             file_name = os.path.basename(f)
@@ -58,21 +65,28 @@ class UnityProjectAssetMapper(AssetMapper):
         return list(assets.values())
 
     def clean_up(self):
-        pass
+        print("No clean up needed")
+
+    @staticmethod
+    def is_directory_path(file_path) -> bool:
+        return len(file_path.name.split("/")[-1].split(".")) == 1
 
 
 class NameGroupingAssetMapper(AssetMapper):
 
+    def __init__(self, file_explorer: FileExplorer):
+        self.file_explorer = file_explorer
+
     def map_assets(self, config: ProjectUploaderConfig) -> [AssetInfo]:
-        files = [y for x in os.walk(config.assets_path) for y in glob(os.path.join(x[0], '*'))]
+        files = self.file_explorer.list_files(config.assets_path)
         # remove files with excluded extensions
         files = [f for f in files if not any(f.endswith(ext) for ext in config.excluded_file_extensions)]
 
         assets = dict()
         for f in files:
-            if os.path.isdir(f):
+            if is_directory_path(f):
                 continue
-            if f.endswith(".meta"):  # meta file should not be considered as an asset alone
+            if f.name.endswith(".meta"):  # meta file should not be considered as an asset alone
                 continue
 
             base_name = os.path.splitext(os.path.basename(f))[0]
@@ -97,16 +111,18 @@ class NameGroupingAssetMapper(AssetMapper):
         return list(assets.values())
 
     def clean_up(self):
-        pass
+        print("No clean up needed")
 
 
 class FolderGroupingAssetMapper(AssetMapper):
 
+    def __init__(self, file_explorer: FileExplorer):
+        self.file_explorer = file_explorer
+
     def map_assets(self, config: ProjectUploaderConfig) -> [AssetInfo]:
 
         abs_path = os.path.abspath(config.assets_path)
-        hierarchical_level = int(config.hierarchical_level) + abs_path.count(os.sep)
-        folders = [x[0] for x in os.walk(abs_path) if x[0].count(os.sep) == hierarchical_level]
+        folders = self.file_explorer.get_folders_at_hierarchy_level(abs_path, config.hierarchical_level)
 
         if len(folders) == 0:
             print(f"No folders found in the assets path. Only the root folder will be considered as an asset")
@@ -117,16 +133,16 @@ class FolderGroupingAssetMapper(AssetMapper):
             asset_name = PurePath(folder).name
             assets[asset_name] = AssetInfo(asset_name)
 
-            files = [get_file_info(PurePath(f), abs_path) for x in os.walk(folder) for f in glob(os.path.join(x[0], '*'))]
+            files = self.file_explorer.list_files(folder)
             # remove files with excluded extensions
-            files = [f for f in files if not any(f.path.suffix.endswith(ext) for ext in config.excluded_file_extensions)]
-            assets[asset_name].files = files
+            files = [f for f in files if not any(f.suffix.endswith(ext) for ext in config.excluded_file_extensions)]
+            assets[asset_name].files = [get_file_info(f, abs_path) for f in files]
 
         for asset in assets.values():
             # detect preview files with extension as png
             asset_files = asset.files.copy()
             for file in asset_files:
-                if os.path.isdir(file.path):
+                if is_directory_path(file.path):
                     asset.files.remove(file)
 
                 if config.preview_detection and self.is_preview_file(file.path):
@@ -150,7 +166,7 @@ class FolderGroupingAssetMapper(AssetMapper):
         return is_picture_file and file_name_is_preview or is_picture_file and parent_folder_is_preview
 
     def clean_up(self):
-        pass
+        print("No clean up needed")
 
 
 class UnityPackageAssetMapper(AssetMapper):
@@ -203,6 +219,7 @@ class UnityPackageAssetMapper(AssetMapper):
 
     def clean_up(self):
         shutil.rmtree("tempo")
+        print("Extracted files have been deleted")
 
 
     @staticmethod
@@ -216,45 +233,44 @@ class UnityPackageAssetMapper(AssetMapper):
 
 class SingleFileAssetMapper(AssetMapper):
 
+    def __init__(self, file_explorer: FileExplorer):
+        self.file_explorer = file_explorer
+
     def clean_up(self):
-        pass
+        print("No clean up needed")
 
     def map_assets(self, config: ProjectUploaderConfig) -> [AssetInfo]:
-        absolute_path = os.path.abspath(config.assets_path)
-        # find all files in the assets folder and sub folders
-        files = [y for x in os.walk(config.assets_path) for y in glob(os.path.join(x[0], '*'))]
+        files = self.file_explorer.list_files(config.assets_path)
         # remove files with excluded extensions
-        files = [f for f in files if not any(f.endswith(ext) for ext in config.excluded_file_extensions)]
+        files = [f for f in files if not any(f.suffix.endswith(ext) for ext in config.excluded_file_extensions)]
 
         assets = []
 
         potential_previews = {}
         if config.preview_detection:
             for file in files:
-                if os.path.isdir(file):
+                if self.is_directory_path(file):
                     continue
 
-                file_path = PurePath(file)
-                if self.is_preview_file(file_path):
-                    file_stem = file_path.stem.lower().replace("_preview", "")
-                    potential_previews[file_stem] = FileInfo(file_path,
-                                                             PurePosixPath(file_path.relative_to(config.assets_path)))
+                if self.is_preview_file(file):
+                    file_stem = file.stem.lower().replace("_preview", "")
+                    potential_previews[file_stem] = FileInfo(file,
+                                                             PurePosixPath(file.relative_to(config.assets_path)))
 
         for file in files:
-            if os.path.isdir(file):
+            if self.is_directory_path(file):
                 continue
 
             if file in potential_previews.values():
                 continue
 
-            file_path = PurePath(file)
             asset = AssetInfo(os.path.basename(file))
-            asset.files.append(FileInfo(file_path, PurePosixPath(file_path.relative_to(config.assets_path))))
+            asset.files.append(FileInfo(file, PurePosixPath(file.relative_to(config.assets_path))))
 
-            if file_path.stem.lower() in potential_previews:
-                preview_file = potential_previews[file_path.stem.lower()]
+            if file.stem.lower() in potential_previews:
+                preview_file = potential_previews[file.stem.lower()]
                 asset.preview_files.append(preview_file)
-                del potential_previews[file_path.stem.lower()]
+                del potential_previews[file.stem.lower()]
 
             assets.append(asset)
 
@@ -275,6 +291,10 @@ class SingleFileAssetMapper(AssetMapper):
 
         return file_stem.endswith("_preview") and is_picture_file
 
+    @staticmethod
+    def is_directory_path(file_path) -> bool:
+        return len(file_path.name.split("/")[-1].split(".")) == 1
+
 
 class CsvAssetMapper(AssetMapper):
 
@@ -284,6 +304,9 @@ class CsvAssetMapper(AssetMapper):
     def clean_up(self):
         if self.sub_strategy == "unityPackage":
             shutil.rmtree("tempo")
+            print("Extracted files have been deleted")
+        else:
+            print("No clean up needed")
 
     def map_assets(self, config: ProjectUploaderConfig) -> [AssetInfo]:
         assets = []
@@ -295,10 +318,9 @@ class CsvAssetMapper(AssetMapper):
             if len(inputs) == 2:
                 self.sub_strategy = Strategy(inputs[0])
                 sub_path = inputs[1]
-                if self.sub_strategy == "unityPackage":
+                if self.sub_strategy == Strategy.UNITY_PACKAGE:
                     self.extract_unity_package(sub_path)
-                elif self.sub_strategy == "cloudAsset":
-                    print("File update not supported for cloud assets, upload will be skipped", flush=True)
+                elif self.sub_strategy == Strategy.CLOUD_ASSET:
                     config.update_files = False
 
             for row in reader:
@@ -357,7 +379,7 @@ class CloudAssetMapper(AssetMapper):
         return asset_infos
 
     def clean_up(self):
-        pass
+        print("No clean up needed")
 
 
 def get_unity_id_from_meta_file(meta_file_content) -> str:
