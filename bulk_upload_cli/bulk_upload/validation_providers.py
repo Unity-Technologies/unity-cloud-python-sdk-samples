@@ -4,6 +4,7 @@ import csv
 import subprocess
 import os
 import platform
+from shared.utils import execute_prompt
 
 
 class ValidationProvider(ABC):
@@ -16,8 +17,9 @@ class InteractiveCSVValidationProvider(ValidationProvider):
     def validate_assets(self, assets: [AssetInfo], config: ProjectUploaderConfig) -> [AssetInfo]:
         from InquirerPy import inquirer
 
-
-        create_csv = False if config.strategy == Strategy.CSV_FILE else inquirer.confirm("Do you want to generate a csv to edit the assets' metadata and infos?").execute()
+        create_csv = False if config.strategy == Strategy.CSV_FILE else execute_prompt(
+            inquirer.confirm("Do you want to generate a csv to edit the assets' metadata and infos?",
+                             mandatory_message="Cannot go back here."))
 
         if not create_csv:
             self.validate_amount_of_assets(assets)
@@ -54,11 +56,14 @@ class InteractiveCSVValidationProvider(ValidationProvider):
             print(e)
             return assets
 
-        validate_csv = inquirer.confirm("Do you want to open the .csv file and review?").execute()
+        validate_csv = execute_prompt(
+            inquirer.confirm("Do you want to open the .csv file and review?", mandatory_message="Cannot go back here."))
 
         if validate_csv:
             self.open_csv("validation.csv")
-            validation_complete = inquirer.confirm("Have you reviewed the .csv file and are ready to proceed?").execute()
+            validation_complete = execute_prompt(
+                inquirer.confirm("Have you reviewed the .csv file and are ready to proceed?",
+                                 mandatory_message="Cannot go back here."))
 
             if not validation_complete:
                 print("Bulk creation canceled. The program will exit.")
@@ -84,9 +89,9 @@ class InteractiveCSVValidationProvider(ValidationProvider):
 
         total_size = sum([asset.get_files_size() for asset in assets])
         total_assets = len(assets)
-
         print(f"You're about to upload {total_assets} assets with a total size of {total_size} bytes.")
-        proceed = inquirer.confirm("Do you want to proceed?").execute()
+
+        proceed = execute_prompt(inquirer.confirm("Do you want to proceed?", mandatory_message="Cannot go back here."))
         if not proceed:
             print("Bulk creation canceled. The program will exit.")
             exit(0)

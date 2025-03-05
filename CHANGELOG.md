@@ -5,12 +5,22 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-02-28
+
+### Added
+- Added keybidings to quit the application and to go back to the previous question in interactive mode.
+
+### Changed
+- Updated Python SDK dependency for bulk_upload to 0.10.6
+
 ## [0.3.0] - 2025-02-04
 
 ### Added
 - Added the column description in the csv to allow edit of individual asset descriptions.
 - Add multiple user input validations during the interactive config mode.
 - Added `app_settings.json` file to configure applications amount of parallel workers and environment variables when needed.
+- Added the capacity to retry step when there's a failure during the pipeline.
+- Added a default timeout of 5 mins for http calls to help with the uploads of bigger files.
 
 ### Changed
 - Organizations and projects are now selected via a list in the interactive config mode and delete mode.

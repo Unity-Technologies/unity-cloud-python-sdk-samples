@@ -4,7 +4,8 @@ import re
 import subprocess
 from enum import Enum
 
-sdk_version = "0.10.3"
+
+sdk_version = "0.10.6"
 
 class OperationSystem(Enum):
     windows = 'windows'
@@ -27,7 +28,7 @@ def get_platform_name(system: str, machine: str) -> str:
 colors = {
     "reset": "\x1b[0m",
     "red": "\x1b[31m",
-    "green": "\x1b[32m",
+    "green": "\033[4m\033[1m\x1b[32m",
     "yellow": "\x1b[33m",
     "cyan": "\x1b[36m",
 }
@@ -43,7 +44,8 @@ def __is_windows():
 
 def __c(color: str, msg: str) -> str:
     if __is_windows():
-        return msg
+        os.system('color')
+        return colors[color] + msg + colors["reset"]
     else:
         return colors[color] + msg + colors["reset"]
 
@@ -60,6 +62,10 @@ def log_error(msg: str):
     __log("red", f"ERROR: {msg}")
 
 
+def log_info(msg: str):
+    __log("cyan", msg)
+
+
 def pip_install_unity_cloud():
     try:
         version_check_command = [sys.executable, "-m", "pip", "show", "unity_cloud"]
@@ -74,6 +80,7 @@ def pip_install_unity_cloud():
     install_command = [sys.executable, "-m", "pip", "install", "--index-url",
                         "https://unity3ddist.jfrog.io/artifactory/api/pypi/am-pypi-prod-local/simple",
                         f"unity-cloud=={sdk_version}", "--force-reinstall"]
+
     try:
         subprocess.run(install_command, check=True)
         sys.stderr.write(f"Unity Cloud SDK installed successfully.")
@@ -112,3 +119,12 @@ def check_install_requirements():
 
     except ImportError:
         return False
+
+
+def execute_prompt(prompt, force_mandatory=False):
+    @prompt.register_kb("c-q")
+    def _handle_kb(event):
+        prompt._mandatory = False
+        prompt._handle_skip(event)
+        exit(1)
+    return prompt.execute()

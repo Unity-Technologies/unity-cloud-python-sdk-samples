@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from bulk_upload.models import AssetCustomization, AssetInfo, ProjectUploaderConfig, Strategy
 from pathlib import PurePath
+from shared.utils import execute_prompt
 import unity_cloud as uc
 
 
@@ -34,12 +35,13 @@ class InteractiveAssetCustomizer(AssetCustomizationProvider):
     def get_tags() -> [str]:
         from InquirerPy import inquirer
 
-        tags = sanitize_tags(inquirer.text(
-            message="Enter the tags to apply to the assets (comma separated; leave empty to assign no tag):").execute())
+        tags = sanitize_tags(execute_prompt(inquirer.text(
+            message="Enter the tags to apply to the assets (comma separated; leave empty to assign no tag):",
+            mandatory_message="Cannot go back here.")))
         return tags
 
     @staticmethod
-    def get_collection(org_id, project_id) -> str:
+    def get_collection( org_id, project_id) -> str:
         from InquirerPy import inquirer
 
         try:
@@ -49,22 +51,20 @@ class InteractiveAssetCustomizer(AssetCustomizationProvider):
 
         collections.append("No collection")
         collections.append("Create new collection")
-        collection = inquirer.select(message="Select the collection you want to link the assets to.",
-                                     choices=collections).execute()
+        collection = execute_prompt(inquirer.select(message="Select the collection you want to link the assets to.",
+                                                    choices=collections,
+                                                    mandatory_message="Cannot go back here."))
 
         if collection == "Create new collection":
-            collection = inquirer.text(message="Enter the name of the new collection:").execute()
+            collection = execute_prompt(inquirer.text(message="Enter the name of the new collection:",
+                                                      mandatory_message="Cannot go back here."))
 
             if collection == "":
                 print("Collection name cannot be empty. No collection will be linked to the assets.")
                 return ""
 
-            collection_description = inquirer.text(message="Enter the description of the new collection:").execute()
-            if collection_description == "":
-                collection_description = collection
-
             collection_creation = uc.models.CollectionCreation(name=collection, parent_path="",
-                                                               description=collection_description)
+                                                               description=collection)
             uc.assets.create_collection(collection_creation, org_id, project_id)
 
         return collection if collection != "No collection" else ""

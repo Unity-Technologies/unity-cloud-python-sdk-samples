@@ -20,9 +20,14 @@ class DependencyStrategy(str, Enum):
     ASSET_REFERENCE = "reference"
 
 
+class FileSource(str, Enum):
+    LOCAL = "local"
+
+
 class ProjectUploaderConfig(object):
 
     def __init__(self):
+        self.file_source = FileSource.LOCAL
         self.strategy = Strategy.SINGLE_FILE_ASSET
         self.dependency_strategy = DependencyStrategy.NONE
         self.files_common_to_every_assets = []
@@ -42,6 +47,7 @@ class ProjectUploaderConfig(object):
         self.preview_detection = False
 
     def load_from_json(self, config_json: dict):
+        self.file_source = FileSource(config_json.get("fileSource", "local"))
         self.strategy = Strategy(config_json.get("strategy", "resource_type"))
         self.dependency_strategy = DependencyStrategy(config_json.get("dependency_strategy", "none"))
         self.files_common_to_every_assets = config_json.get("filesCommonToEveryAssets", [])
@@ -60,6 +66,7 @@ class ProjectUploaderConfig(object):
         self.hierarchical_level = config_json.get("hierarchicalLevel", 0)
         self.preview_detection = config_json.get("previewDetection", False)
 
+
         # remove the "." from the file extensions
         self.excluded_file_extensions = [x[1:] if x.startswith(".") else x for x in self.excluded_file_extensions]
 
@@ -74,6 +81,7 @@ class ProjectUploaderConfig(object):
         asset_path = json.dumps(self.assets_path)
         files_common_to_every_assets = [json.dumps(x) for x in self.files_common_to_every_assets]
         return rf"""{{
+    "fileSource": "{self.file_source.value}",
     "strategy": "{self.strategy.value}",
     "dependency_strategy": "{self.dependency_strategy.value}",
     "filesCommonToEveryAssets": {json.dumps(files_common_to_every_assets)},
@@ -99,14 +107,17 @@ class ProjectUploaderConfig(object):
 
 class AppSettings(object):
     DEFAULT_PARALLEL_CREATION_EDIT = 20
-    DEFAULT_PARALLEL_ASSET_UPLOAD = 2
+    DEFAULT_PARALLEL_ASSET_UPLOAD = 5
     DEFAULT_PARALLEL_FILE_UPLOAD_PER_ASSET = 5
+    DEFAULT_HTTP_TIMEOUT = 300
 
     def __init__(self):
         self.parallel_creation_edit = self.DEFAULT_PARALLEL_CREATION_EDIT
         self.parallel_asset_upload = self.DEFAULT_PARALLEL_ASSET_UPLOAD
         self.parallel_file_upload_per_asset = self.DEFAULT_PARALLEL_FILE_UPLOAD_PER_ASSET
+        self.http_timeout = self.DEFAULT_HTTP_TIMEOUT
         self.environment_variables = {}
+        self.feature_flags = []
 
     def load_from_json(self):
         if not os.path.exists("app_settings.json"):
@@ -120,13 +131,15 @@ class AppSettings(object):
             self.parallel_asset_upload = data.get("parallelAssetUpload", self.DEFAULT_PARALLEL_ASSET_UPLOAD)
             self.parallel_file_upload_per_asset = data.get("parallelFileUploadPerAsset", self.DEFAULT_PARALLEL_FILE_UPLOAD_PER_ASSET)
             self.environment_variables = data.get("environmentVariables", {})
+            self.http_timeout = data.get("httpTimeout", self.DEFAULT_HTTP_TIMEOUT)
 
     def to_json(self):
         return rf"""{{
     "parallelCreationEdit": {self.parallel_creation_edit},
     "parallelAssetUpload": {self.parallel_asset_upload},
     "parallelFileUploadPerAsset": {self.parallel_file_upload_per_asset},
-    "environmentVariables": {self.environment_variables}
+    "environmentVariables": {self.environment_variables},
+    "featureFlags": {self.feature_flags}
 }}
 """
 

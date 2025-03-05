@@ -20,6 +20,7 @@ Find and connect support services on the [Help & Support](https://cloud.unity.co
     - [Editing metadata in the csv file](#editing-metadata-in-the-csv-file)
     - [Use an existing configuration file](#use-an-existing-configuration-file)
     - [Fine-tune the asset creation and upload](#fine-tune-the-asset-creation-and-upload)
+    - [Use keybindings](#use-keybindings)
   - [Troubleshoot](#troubleshoot)
   - [See also](#see-also)
   - [Tell us what you think](#tell-us-what-you-think)
@@ -62,18 +63,22 @@ The bulk upload sample script is provided under the [Unity ToS license](../LICEN
    * On Mac: `python3 bulk_cli.py --create`
    * On Windows: `python bulk_cli.py --create`
 
+### Select an action
+
+Select one of the two possible actions:
+
+- **Upload local assets**: Select this option to upload assets from your local machine to the cloud. See the [Select the input method](#select-the-input-method) section for more information.
+- **Update assets' metadata**: Select this option to update the metadata of assets in the cloud. See the [Creating a csv from a Unity Cloud project](#creating-a-csv-from-a-unity-cloud-project) section for more information.
 ### Select the input method
 
-Select one of the three strategies as the input method for bulk asset creation:
+Select one of the four strategies as the input method for bulk asset creation:
 
-- **listed in a casv respecting the CLI tool template**: Select this option if you built a CSV listing your assets location and details using the provided template.
+- **listed in a csv respecting the CLI tool template**: Select this option if you built a CSV listing your assets location and details using the provided template.
   * Provide the path to the csv file.
 - **in a .unitypackage file**: Select this option if your assets are in a .unitypackage file. The tool extracts the assets from the .unitypackage file and uploads them to the cloud.
   * Provide the path to the .unitypackage file.
 - **in a local unity project**: Select this option if your assets are in a local Unity project.
   * Provide the path to the asset folder of the Unity project.
-- **in UnityCloud**: Select this option if your assets are in a Unity Cloud project.
-  * Provide the organization ID and project ID. As of now, this features is solely to update tags and metadata of assets in the cloud. See section [Creating a csv from a Unity Cloud project](#creating-a-csv-from-a-unity-cloud-project) for more information.
 - **in a folder**: Select this option if your assets are in a folder on your local machine.
   * Chose the grouping strategy for the assets:
     - group files by name: Select this option if your assets are following a naming convention, for example, blueasset.fbx, blueasset.png.
@@ -81,8 +86,8 @@ Select one of the three strategies as the input method for bulk asset creation:
     - group files by folder: Select this option if your assets are organized by folder, that is, all relevant files are in distinct folders.
 ![Using the group by folder convention](./documentation/group-by-folder.png)
     - one file = one asset: Select this option if no grouping is necessary. Each file in the asset folder and its subfolders is created as an asset.
-      - Confirm if you want automatic preview detection:
-        - If you said yes: any picture file with the suffix `_preview` will be associated to the file of the same name as a preview.
+    - Confirm if you want automatic preview detection:
+      - If you said yes: any picture file with the suffix `_preview` will be associated to the file of the same name as a preview.
 
 ### Validation step
 
@@ -104,7 +109,7 @@ To manage and customize the upload of assets, create an upload plan as follows:
 
 To create a .csv file from a Unity Cloud project, follow these steps:
 1. Run the CLI tool with the `--create` flag.
-2. When prompted to chose where the assets are located, select `in Unity Cloud`.
+2. When prompted to chose an action, select `Update assets' metadata`.
 3. Answer the next questions normally.
 >  **Note**: The files won't be downloaded nor will they appear in the .csv file. Using the `Unity Cloud` assets source will only allow you to update assets tags and metadata.
 >  **Note**: The collection won't appear in the csv as this is a known limitation at the moment. You can still edit this colum in the csv file to update the collection of the assets.
@@ -131,10 +136,17 @@ To use an existing configuration file, follow these steps:
 
 With the `app_settings.json` file, you can fine-tune the amount of assets created and uploaded in parallel. Depending on your network, the number of assets, and the size of the assets, you can adjust the following settings:
 - `parallelCreationEdit`: The number of assets created and updated in parallel. This settings can be kept high as it is not resource intensive.
-- `parallelAssetUpload`: The number of assets that will have their files uploaded in parallel. This setting should be adjusted depending on the size of the assets and the network speed. When dealing with large files (>100MB), it is recommended to keep this setting low (1-2) to avoid time out.
+- `parallelAssetUpload`: The number of assets that will have their files uploaded in parallel. This setting should be adjusted depending on the size of the assets and the network speed. When dealing with large files (>100MB), it is recommended to keep this setting low (3-4) to avoid time out.
 - `parallelFileUploadPerAsset`: The number of files uploaded in parallel for each asset. This setting should be adjusted depending on the number of files and the network speed. It is recommended to adjust it according to `parallelAssetUpload`, as the total number of files uploaded in parallel will be `parallelAssetUpload * parallelFileUploadPerAsset`.
+- `httpTimeout`: The time (in seconds) before the http client triggers a timeout exception. When handling very large files (> 1GB) or when on a slow connection, it might be necessary to raise this value.
 
 In the `app_settings.json` file, you can also add environment variables that will be set at runtime. This is useful when running the CLI tool in a private network environment.
+
+### Use keybindings
+
+When used in interactive mode, the CLI tool provides keybindings to help you navigate the tool more efficiently. The keybindings are as follows:
+- `Ctrl + Q`: Exit the tool.
+- `Ctrl + Z`: Go back to the previous question.
 
 ## Troubleshoot
 
