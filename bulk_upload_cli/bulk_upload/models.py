@@ -45,6 +45,8 @@ class ProjectUploaderConfig(object):
         self.description = ""
         self.hierarchical_level = 0
         self.preview_detection = False
+        self.path_to_collection = False
+        self.collections = []
 
     def load_from_json(self, config_json: dict):
         self.file_source = FileSource(config_json.get("fileSource", "local"))
@@ -65,7 +67,7 @@ class ProjectUploaderConfig(object):
         self.description = config_json.get("description", "")
         self.hierarchical_level = config_json.get("hierarchicalLevel", 0)
         self.preview_detection = config_json.get("previewDetection", False)
-
+        self.path_to_collection = config_json.get("pathToCollection", False)
 
         # remove the "." from the file extensions
         self.excluded_file_extensions = [x[1:] if x.startswith(".") else x for x in self.excluded_file_extensions]
@@ -75,6 +77,8 @@ class ProjectUploaderConfig(object):
             self.excluded_file_extensions.remove("meta")
         if ".meta" in self.excluded_file_extensions:
             self.excluded_file_extensions.remove(".meta")
+
+
 
     def to_json(self):
 
@@ -100,7 +104,8 @@ class ProjectUploaderConfig(object):
     "updateFiles": {self.update_files.__str__().lower()},
     "description": {json.dumps(self.description)},
     "hierarchicalLevel": {self.hierarchical_level},
-    "previewDetection": {self.preview_detection.__str__().lower()}
+    "previewDetection": {self.preview_detection.__str__().lower()},
+    "pathToCollection": {json.dumps(self.path_to_collection)}
 }}
 """
 
@@ -175,8 +180,9 @@ class AssetInfo(object):
 
         unity_info_csv = f"UnityId:{self.unity_id}\nUnityCloudId:{self.am_id}\nVersionId:{self.version}\nFrozen:{self.is_frozen_in_cloud}"
 
+        collections_csv = ",".join(self.customization.collections)
         asset_csv = ["", self.name, unity_info_csv, f'{files_csv}', f'{dependencies_csv}',
-                     self.customization.description, self.customization.collection,
+                     self.customization.description, collections_csv,
                      f'{tags_csv}', f'{preview_files_csv}']
 
         for metadata_column in metadata_columns:
@@ -221,7 +227,7 @@ class AssetInfo(object):
         if dependency_csv != "":
             self.dependencies = [int(dependency) - 2 for dependency in dependency_csv.split(",")]
 
-        self.customization.collection = csv_row.get("Collection", "")
+        self.customization.collections = csv_row.get("Collection", "").split(",")
         self.customization.description = csv_row.get("Description", "")
 
         tags_csv = csv_row.get("Tags", "")
@@ -263,9 +269,9 @@ class AssetInfo(object):
 class AssetCustomization(object):
     def __init__(self):
         self.tags = []
-        self.collection = None
         self.metadata: list[Metadata] = []
         self.description = ""
+        self.collections = []
 
 
 class Metadata(object):
@@ -275,3 +281,24 @@ class Metadata(object):
 
     def to_csv(self):
         return f"{self.field_definition}={self.field_value}"
+
+
+class CollectionInfo(object):
+    def __init__(self, path: PurePosixPath):
+        self.path = path
+        self.assets = []
+        self.exists_in_cloud = False
+
+    def add_asset(self, asset: AssetInfo):
+        self.assets.append(asset)
+        if self.path.__str__() not in asset.customization.collections:
+            asset.customization.collections.append(self.path.__str__())
+
+    def get_name(self):
+        return self.path.name
+
+    def get_parent(self):
+        parent = self.path.parent
+        if parent.__str__() == ".":
+            return ""
+        return parent.__str__()

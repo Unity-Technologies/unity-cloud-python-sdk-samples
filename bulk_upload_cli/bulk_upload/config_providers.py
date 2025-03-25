@@ -201,10 +201,6 @@ class InteractiveConfigProvider(ConfigProvider):
         if strategy == Strategy.SINGLE_FILE_ASSET_UNITY:
             self.ask_for_dependency_strategy()
 
-            self.config.preview_detection = self.execute_prompt_auto(inquirer.confirm(
-                message="Would you like to enable automatic preview detection (see documentation to see how it is detected)?"),
-                self.config.preview_detection)
-
         return self.config
 
     def get_unity_package_config(self) -> ProjectUploaderConfig:
@@ -228,7 +224,7 @@ class InteractiveConfigProvider(ConfigProvider):
         self.ask_for_dependency_strategy()
 
         self.config.update_files = self.execute_prompt_auto(inquirer.confirm(
-            "Would you like to enable automatic preview detection (see documentation to see how it is detected)?"),
+            message="Would you like to update the files of existing assets ? (This will delete the current ones.)"),
             self.config.update_files)
 
         return self.config

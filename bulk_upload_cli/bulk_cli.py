@@ -2,7 +2,7 @@ import argparse
 import platform
 import json
 
-from shared.utils import OperationSystem, pip_install_unity_cloud, pip_install_other_libraries, \
+from shared.utils import OperationSystem, pip_install_requirements, \
     check_install_requirements, check_python_version
 import os
 
@@ -36,8 +36,7 @@ def get_current_os():
 
 def install_requirements():
     current_os = get_current_os()
-    pip_install_unity_cloud()
-    pip_install_other_libraries()
+    pip_install_requirements()
 
 
 def run_bulk_assets_creation(config=None, select_config=False):

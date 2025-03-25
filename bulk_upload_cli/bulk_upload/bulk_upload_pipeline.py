@@ -11,7 +11,7 @@ from bulk_upload.asset_mappers import NameGroupingAssetMapper, FolderGroupingAss
     UnityProjectAssetMapper, SingleFileAssetMapper, CsvAssetMapper, CloudAssetMapper
 from bulk_upload.assets_uploaders import AssetUploader, CloudAssetUploader
 from bulk_upload.assets_customization_providers import AssetCustomizationProvider, InteractiveAssetCustomizer, \
-    HeadlessAssetCustomizer, DefaultCustomizationProvider
+    HeadlessAssetCustomizer, DefaultCustomizationProvider, CsvAssetCustomizer
 from bulk_upload.dependency_resolving import DependencyResolver, EmbeddedDependencyResolver, \
     AssetReferenceDependencyResolver, DefaultDependencyResolver
 from bulk_upload.validation_providers import ValidationProvider, InteractiveCSVValidationProvider, \
@@ -220,8 +220,10 @@ class BulkUploadPipeline:
 
     @staticmethod
     def get_asset_customizer(is_headless_run: bool, config: ProjectUploaderConfig):
-        if config.strategy == Strategy.CSV_FILE or config.strategy == Strategy.CLOUD_ASSET:
+        if config.strategy == Strategy.CLOUD_ASSET:
             return DefaultCustomizationProvider()
+        elif config.strategy == Strategy.CSV_FILE:
+            return CsvAssetCustomizer()
         elif is_headless_run:
             return HeadlessAssetCustomizer()
         else:

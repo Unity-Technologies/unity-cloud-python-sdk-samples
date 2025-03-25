@@ -1,0 +1,6 @@
+# This file lists all pip dependencies
+
+--extra-index-url https://unity3ddist.jfrog.io/artifactory/api/pypi/am-pypi-prod-local/simple
+unity_cloud == 0.10.6
+
+InquirerPy
