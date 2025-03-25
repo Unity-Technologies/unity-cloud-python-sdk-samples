@@ -32,6 +32,10 @@ class CloudAssetUploader(AssetUploader):
         if asset_infos is None:
             return
 
+        if any(collection.exists_in_cloud is False for collection in config.collections):
+            print("Creating collections", flush=True)
+            self.create_collections(config.collections)
+
         for asset in asset_infos:
             for project_asset in cloud_assets:
                 if asset.name == project_asset.name or (asset.name.lower() == project_asset.name.lower() and not self.config.case_sensitive):
@@ -51,7 +55,7 @@ class CloudAssetUploader(AssetUploader):
         wait(self.futures)
         self.futures = list()
 
-        #sleep for 10 seconds to allow the asset to be created with their dataset
+        #sleep for 12 seconds to allow the asset to be created with their dataset
         time.sleep(10)
 
         print("Setting asset dependencies", flush=True)
@@ -61,6 +65,14 @@ class CloudAssetUploader(AssetUploader):
 
             wait(self.futures)
             self.futures = list()
+
+        #sleep for 10 seconds to allow back-end to finish processing
+        time.sleep(10)
+        print("Setting collections", flush=True)
+        self.set_collections(config.collections)
+
+        #sleep for 5 seconds to allow back-end to finish processing
+        time.sleep(5)
 
         if self.config.update_files and self.config.strategy == Strategy.CLOUD_ASSET:
             self.config.update_files = False
@@ -72,7 +84,7 @@ class CloudAssetUploader(AssetUploader):
 
         self.futures = list()
 
-        print("Setting tags and collections for assets", flush=True)
+        print("Setting tags and metadata for assets", flush=True)
         with ThreadPoolExecutor(max_workers=app_settings.parallel_creation_edit) as executor:
             for asset in asset_infos:
                 self.futures.append(executor.submit(self.set_asset_decorations, asset))
@@ -216,13 +228,31 @@ class CloudAssetUploader(AssetUploader):
             print(f'Failed to update asset: {asset.name}', flush=True)
             print(e, flush=True)
 
-        if asset.customization.collection is not None and asset.customization.collection != "":
-            uc.assets.link_assets_to_collection(self.config.org_id, self.config.project_id, asset.customization.collection,
-                                                [asset.am_id])
-
         if not skip_freeze:
             uc.assets.freeze_asset_version(self.config.org_id, self.config.project_id, asset.am_id, asset.version,
                                            "new version")
+
+    def create_collections(self, collections: [CollectionInfo]):
+        for collection in collections:
+            try:
+                if not collection.exists_in_cloud:
+                    collection_creation = CollectionCreation(name=collection.get_name(), parent_path=collection.get_parent(), description=collection.get_name())
+                    uc.assets.create_collection(collection_creation, self.config.org_id, self.config.project_id)
+                    collection.exists_in_cloud = True
+
+            except Exception as e:
+                print(f'Failed to create collection: {collection.path.__str__()}', flush=True)
+                print(e, flush=True)
+
+    def set_collections(self, collections: [CollectionInfo]):
+        for collection in collections:
+            try:
+                if len(collection.assets) > 0:
+                    uc.assets.link_assets_to_collection(self.config.org_id, self.config.project_id, collection.path.__str__(), [asset.am_id for asset in collection.assets])
+
+            except Exception as e:
+                print(f'Failed to set assets to collection : {collection.path.__str__()}', flush=True)
+                print(e, flush=True)
 
     def get_asset_type(self, cloud_path: PurePosixPath) -> AssetType:
         suffix = cloud_path.suffix.lower()

@@ -193,9 +193,9 @@ class UnityPackageAssetMapper(AssetMapper):
                         asset_path = self.get_path_from_pathname_file(tar, path_file)
                         asset = AssetInfo(asset_path.name)
                         asset_file = PurePath("tempo").joinpath(asset_file_name)
-                        asset.files.append(FileInfo(asset_file, PurePosixPath(asset_path.__str__())))
+                        asset.files.append(FileInfo(asset_file, PurePosixPath(asset_path.as_posix())))
                         meta_file = PurePath("tempo").joinpath(meta_file_name)
-                        asset.files.append(FileInfo(meta_file, PurePosixPath(asset_path.__str__() + ".meta")))
+                        asset.files.append(FileInfo(meta_file, PurePosixPath(asset_path.as_posix().__str__() + ".meta")))
                         asset.unity_id = PurePath(name).as_posix()
 
                         # Get dependencies

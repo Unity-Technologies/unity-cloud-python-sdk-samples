@@ -1,5 +1,6 @@
 from InquirerPy import inquirer
 from shared.utils import execute_prompt
+from pathlib import PurePosixPath
 
 import unity_cloud as uc
 
@@ -70,3 +71,17 @@ def delete_assets_in_project():
         uc.assets.unlink_assets_from_project(org_id, project_id, [asset.id for asset in chunk])
 
     print(f"Deleted {len(project_assets)} assets.")
+
+    collections = uc.assets.list_collections(org_id, project_id)
+    if len(collections) == 0:
+        exit(0)
+
+    confirm = execute_prompt(inquirer.confirm(message=f"Do you want to delete {len(collections)} collections?"))
+
+    if not confirm:
+        exit(0)
+
+    # order by parent path parts length to delete sub collections first
+    collections = sorted(collections, key=lambda x: len(PurePosixPath(x.parent_path).parts), reverse=True)
+    for collection in collections:
+        uc.assets.delete_collection(org_id, project_id, collection.parent_path + "/" + collection.name)

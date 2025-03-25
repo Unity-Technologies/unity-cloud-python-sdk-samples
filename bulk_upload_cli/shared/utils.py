@@ -5,8 +5,6 @@ import subprocess
 from enum import Enum
 
 
-sdk_version = "0.10.6"
-
 class OperationSystem(Enum):
     windows = 'windows'
     macos = 'macos'
@@ -66,20 +64,8 @@ def log_info(msg: str):
     __log("cyan", msg)
 
 
-def pip_install_unity_cloud():
-    try:
-        version_check_command = [sys.executable, "-m", "pip", "show", "unity_cloud"]
-        version_check_output = subprocess.run(version_check_command, check=True, capture_output=True, text=True)
-        version = re.search(r"Version: (\d+\.\d+\.\d+)", version_check_output.stdout).group(1)
-        if version > sdk_version:
-            sys.stderr.write(f"Unity Cloud SDK already installed with the correct version.")
-            return
-    except subprocess.CalledProcessError:
-        pass
-
-    install_command = [sys.executable, "-m", "pip", "install", "--index-url",
-                        "https://unity3ddist.jfrog.io/artifactory/api/pypi/am-pypi-prod-local/simple",
-                        f"unity-cloud=={sdk_version}", "--force-reinstall"]
+def pip_install_requirements():
+    install_command = [sys.executable, "-m", "pip", "install", "-r", "./requirements.txt", "--force-reinstall"]
 
     try:
         subprocess.run(install_command, check=True)
@@ -87,36 +73,17 @@ def pip_install_unity_cloud():
     except subprocess.CalledProcessError:
         sys.stderr.write(f"Failed to install Unity Cloud SDK\n")
 
-
-def pip_install_other_libraries():
-    install_command = [sys.executable, "-m", "pip", "install", "InquirerPy"]
-    try:
-        subprocess.run(install_command, check=True)
-        print(f"Other libraries installed successfully.")
-    except subprocess.CalledProcessError:
-        sys.stderr.write(f"Failed to install other libraries\n")
-
-
 def check_python_version():
     if sys.version_info < (3, 10):
         return False
     return True
-
 
 def check_install_requirements():
     try:
         from InquirerPy import prompt
         from InquirerPy.base.control import Choice
         import unity_cloud
-        # check if wheel is installed with a recent version
-        try:
-            version_check_command = [sys.executable, "-m", "pip", "show", "unity_cloud"]
-            version_check_output = subprocess.run(version_check_command, check=True, capture_output=True, text=True)
-            version = re.search(r"Version: (\d+\.\d+\.\d+)", version_check_output.stdout).group(1)
-            return version >= sdk_version
-        except subprocess.CalledProcessError:
-            return False
-
+        return True
     except ImportError:
         return False
 

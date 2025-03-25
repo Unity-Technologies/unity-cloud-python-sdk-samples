@@ -148,6 +148,13 @@ When used in interactive mode, the CLI tool provides keybindings to help you nav
 - `Ctrl + Q`: Exit the tool.
 - `Ctrl + Z`: Go back to the previous question.
 
+### Replicate the folder structure with collections
+
+During step 4 of the CLI tool, you will be prompted about replicating the folder structure with collections. If you answer yes, the CLI tool will create collections in the cloud to match the folder structure of the assets. This is useful when you want to keep the same organization in the cloud as on your local machine or a unity project.
+You can still add afterward a global collection to be applied to all assets, since assets can be in multiple collections.
+
+>  **Note**: This question will only appear if you are uploading a unity package, a local unity project or using the `one file = one asset` strategy. When uploading a unity package or a unity project, the question won't appear when using the embedded dependency strategy.
+
 ## Troubleshoot
 
 Here's a list of common problems you might encounter while using the CLI Tool.
