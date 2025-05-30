@@ -265,6 +265,18 @@ class AssetInfo(object):
     def get_files_size(self):
         return sum([os.stat(f.path.__str__()).st_size for f in self.files])
 
+    def is_audio_asset(self):
+        if len(self.files) == 1:
+            return self.is_audio_extension(self.files[0].path.suffix)
+        elif len(self.files) == 2:
+            return any(self.is_audio_extension(f.path.suffix) for f in self.files) \
+                    and any(f.path.suffix in [".meta"] for f in self.files)
+        return False
+
+    @staticmethod
+    def is_audio_extension(extension: str):
+        return extension.lower() in [".wav", ".mp3", ".ogg", ".aiff", ".aif"]
+
 
 class AssetCustomization(object):
     def __init__(self):

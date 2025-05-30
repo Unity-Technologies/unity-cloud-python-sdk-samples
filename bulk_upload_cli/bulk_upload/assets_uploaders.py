@@ -27,7 +27,15 @@ class CloudAssetUploader(AssetUploader):
     def upload_assets(self, asset_infos: [AssetInfo], config: ProjectUploaderConfig, app_settings: AppSettings):
         self.config = config
 
-        cloud_assets = [] if config.strategy == Strategy.CLOUD_ASSET else uc.assets.get_asset_list(self.config.org_id, self.config.project_id)
+        cloud_assets = []
+        if config.strategy != Strategy.CLOUD_ASSET:
+            try:
+                cloud_assets = uc.assets.get_asset_list(self.config.org_id, self.config.project_id)
+            except Exception as e:
+                logger.exception(f"Failed to get cloud assets: {e}")
+                logger.warning("====== WARNING ====")
+                logger.warning("Upload will continue, but no update can be made, only creation. /n")
+
 
         if asset_infos is None:
             return
@@ -222,6 +230,9 @@ class CloudAssetUploader(AssetUploader):
             print(asset.customization.description)
             asset_update.description = asset.customization.description
 
+        if len(asset.preview_files) == 0 and asset.is_audio_asset():
+            asset_update = AssetUpdate(name=asset.name, preview_file=asset.files[0].cloud_path)
+
         try:
             uc.assets.update_asset(asset_update, self.config.org_id, self.config.project_id, asset.am_id, asset.version)
         except Exception as e:
@@ -238,6 +249,8 @@ class CloudAssetUploader(AssetUploader):
                 if not collection.exists_in_cloud:
                     collection_creation = CollectionCreation(name=collection.get_name(), parent_path=collection.get_parent(), description=collection.get_name())
                     uc.assets.create_collection(collection_creation, self.config.org_id, self.config.project_id)
+                    # wait for the collection to be created since this can cause unauthorized errors if the collection is not ready
+                    time.sleep(0.5)
                     collection.exists_in_cloud = True
 
             except Exception as e:
@@ -248,8 +261,9 @@ class CloudAssetUploader(AssetUploader):
         for collection in collections:
             try:
                 if len(collection.assets) > 0:
-                    uc.assets.link_assets_to_collection(self.config.org_id, self.config.project_id, collection.path.__str__(), [asset.am_id for asset in collection.assets])
-
+                    uc.assets.link_assets_to_collection(self.config.org_id, self.config.project_id,
+                                                        collection.path.__str__(),
+                                                        [asset.am_id for asset in collection.assets])
             except Exception as e:
                 print(f'Failed to set assets to collection : {collection.path.__str__()}', flush=True)
                 print(e, flush=True)

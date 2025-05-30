@@ -153,7 +153,6 @@ class FolderGroupingAssetMapper(AssetMapper):
 
     @staticmethod
     def is_preview_file(file_path) -> bool:
-
         file_suffix = file_path.suffix.lower()
         is_picture_file = file_suffix in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]
 
@@ -253,9 +252,8 @@ class SingleFileAssetMapper(AssetMapper):
                     continue
 
                 if self.is_preview_file(file):
-                    file_stem = file.stem.lower().replace("_preview", "")
-                    potential_previews[file_stem] = FileInfo(file,
-                                                             PurePosixPath(file.relative_to(config.assets_path)))
+                    file_stem = self.remove_preview_suffix(file)
+                    potential_previews[file_stem] = FileInfo(file, PurePosixPath(file.relative_to(config.assets_path)))
 
         for file in files:
             if self.is_directory_path(file):
@@ -284,16 +282,31 @@ class SingleFileAssetMapper(AssetMapper):
 
     @staticmethod
     def is_preview_file(file_path) -> bool:
-        file_suffix = file_path.suffix
-        is_picture_file= file_suffix in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]
+        file_suffix = file_path.suffix.lower()
+        is_picture_file = file_suffix in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]
 
         file_stem = file_path.stem.lower()
+        file_name_is_preview = file_stem in ["preview", "previews", "thumbnail", "thumbnails"]
 
-        return file_stem.endswith("_preview") and is_picture_file
+        file_parent_folder = file_path.parent.name.lower()
+        parent_folder_is_preview = file_parent_folder in ["preview", "previews", "thumbnail", "thumbnails"]
+
+        return is_picture_file and file_name_is_preview or is_picture_file and parent_folder_is_preview
 
     @staticmethod
     def is_directory_path(file_path) -> bool:
         return len(file_path.name.split("/")[-1].split(".")) == 1
+
+    @staticmethod
+    def remove_preview_suffix(file_path) -> str:
+        file_stem = file_path.stem.lower()
+
+        for suffix in ["preview", "previews", "thumbnail", "thumbnails"]:
+            if file_stem.endswith(suffix):
+                new_stem = file_stem.replace(suffix, "")
+                break
+
+        return file_stem
 
 
 class CsvAssetMapper(AssetMapper):
