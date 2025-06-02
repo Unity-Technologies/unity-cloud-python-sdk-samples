@@ -5,7 +5,20 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [0.5.0]
+## [0.6.0] - 2025-05-28
+
+### Added
+- Assets containing only one audio file will automatically have their preview set as the same audio file.
+
+### Fixed
+- Fix preview detection for `One file = one asset` strategy.
+- Section for Virtual Private Cloud Support in documentation
+
+### Changed
+- Cleaned up documentation
+- Updated Python SDK dependency for bulk_upload to 0.10.7
+
+## [0.5.0] - 2025-03-21
 
 ### Added
 - Added the capacity to replicate assets' folder structure into collections.

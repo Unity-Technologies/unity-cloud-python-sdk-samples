@@ -84,7 +84,10 @@ class InteractiveAssetCustomizer(AssetCustomizationProvider):
                                                                description=collection)
             uc.assets.create_collection(collection_creation, org_id, project_id)
 
-        return collection if collection != "No collection" else ""
+        if collection == "No collection":
+            return ""
+
+        return collection
 
     @staticmethod
     def get_assets_organization() -> bool:
@@ -157,7 +160,13 @@ class DefaultCustomizationProvider(AssetCustomizationProvider):
 
 def get_cloud_collections(org_id: str, project_id: str):
     collections = uc.assets.list_collections(org_id, project_id)
-    return [collection.name for collection in collections]
+    collections_choices = []
+    for collection in collections:
+        if collection.parent_path == "":
+            collections_choices.append(collection.name)
+        else:
+            collections_choices.append(f"{collection.parent_path}/{collection.name}")
+    return collections_choices
 
 
 def sanitize_tags(tags: str) -> list[str]:

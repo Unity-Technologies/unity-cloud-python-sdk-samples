@@ -178,6 +178,8 @@ class InteractiveConfigProvider(ConfigProvider):
             self.config.hierarchical_level = self.execute_prompt_auto(inquirer.number(
                 message="Enter the depth of directory grouping (for example, 1 to group by top folders in your asset directory)"),
                 self.config.hierarchical_level)
+
+        if strategy == Strategy.SINGLE_FILE_ASSET or strategy == Strategy.FOLDER_GROUPING:
             self.config.preview_detection = self.execute_prompt_auto(inquirer.confirm(
                 message="Would you like to enable automatic preview detection (see documentation to see how it is detected)?"),
                 self.config.preview_detection)
