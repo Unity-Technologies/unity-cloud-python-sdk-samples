@@ -48,7 +48,7 @@ class UnityProjectAssetMapper(AssetMapper):
             file = get_file_info(PurePath(f), config.assets_path)
             assets[file_name].files.append(file)
 
-            if meta_file_exists(file.path):
+            if meta_file_exists(file.path, files):
                 meta_file = get_meta_file(file.path, config.assets_path)
                 assets[file_name].files.append(meta_file)
                 dependencies = []
@@ -86,6 +86,7 @@ class NameGroupingAssetMapper(AssetMapper):
         for f in files:
             if is_directory_path(f):
                 continue
+
             if f.name.endswith(".meta"):  # meta file should not be considered as an asset alone
                 continue
 
@@ -98,15 +99,11 @@ class NameGroupingAssetMapper(AssetMapper):
 
             file = get_file_info(PurePath(f), config.assets_path)
             assets[base_name].files.append(file)
-            if meta_file_exists(file.path):
-                assets[base_name].files.append(get_meta_file(file.path, config.assets_path))
 
         for common_file in config.files_common_to_every_assets:
             common_file = PurePath(common_file)
             for asset in assets.values():
                 asset.files.append(get_file_info(common_file, config.assets_path))
-                if meta_file_exists(common_file):
-                    asset.files.append(get_meta_file(common_file, config.assets_path))
 
         return list(assets.values())
 
@@ -121,8 +118,8 @@ class FolderGroupingAssetMapper(AssetMapper):
 
     def map_assets(self, config: ProjectUploaderConfig) -> [AssetInfo]:
 
-        abs_path = os.path.abspath(config.assets_path)
-        folders = self.file_explorer.get_folders_at_hierarchy_level(abs_path, config.hierarchical_level)
+        abs_path = os.path.abspath(config.assets_path) if config.vcs_integration is None else config.assets_path
+        folders = self.file_explorer.get_folders_at_hierarchy_level(abs_path, int(config.hierarchical_level))
 
         if len(folders) == 0:
             print(f"No folders found in the assets path. Only the root folder will be considered as an asset")
@@ -409,9 +406,9 @@ def get_meta_file(file: PurePath, root_folder: str) -> FileInfo:
     return get_file_info(PurePath(f"{file}.meta"), root_folder)
 
 
-def meta_file_exists(file: PurePath) -> bool:
-    return os.path.exists(f"{file}.meta")
-
+def meta_file_exists(file: PurePath, files) -> bool:
+    meta_file_path = PurePath(f"{file}.meta")
+    return meta_file_path in files
 
 def get_dependencies_from_file(file) -> []:
     try:

@@ -12,6 +12,7 @@ class Strategy(str, Enum):
     SINGLE_FILE_ASSET = "singleFileAsset"
     CSV_FILE = "csvFile"
     CLOUD_ASSET = "cloudAsset"
+    VCS_MAPPING = "vcsMapping"
 
 
 class DependencyStrategy(str, Enum):
@@ -22,6 +23,7 @@ class DependencyStrategy(str, Enum):
 
 class FileSource(str, Enum):
     LOCAL = "local"
+    VCS = "vcs"
 
 
 class ProjectUploaderConfig(object):
@@ -47,6 +49,7 @@ class ProjectUploaderConfig(object):
         self.preview_detection = False
         self.path_to_collection = False
         self.collections = []
+        self.vcs_integration = None
 
     def load_from_json(self, config_json: dict):
         self.file_source = FileSource(config_json.get("fileSource", "local"))
@@ -68,6 +71,10 @@ class ProjectUploaderConfig(object):
         self.hierarchical_level = config_json.get("hierarchicalLevel", 0)
         self.preview_detection = config_json.get("previewDetection", False)
         self.path_to_collection = config_json.get("pathToCollection", False)
+        self.vcs_integration = VcsInformation()
+        self.vcs_integration.from_json(config_json.get("vcsIntegration", {}))
+        if self.vcs_integration.vcs_integration_id == "":
+            self.vcs_integration = None
 
         # remove the "." from the file extensions
         self.excluded_file_extensions = [x[1:] if x.startswith(".") else x for x in self.excluded_file_extensions]
@@ -105,9 +112,14 @@ class ProjectUploaderConfig(object):
     "description": {json.dumps(self.description)},
     "hierarchicalLevel": {self.hierarchical_level},
     "previewDetection": {self.preview_detection.__str__().lower()},
-    "pathToCollection": {json.dumps(self.path_to_collection)}
+    "pathToCollection": {json.dumps(self.path_to_collection)},
+    "vcsIntegration": {self.vcs_integration.to_json() if self.vcs_integration is not None else "{}"}
 }}
 """
+
+
+class FeatureFlags(str, Enum):
+    VCS_INTEGRATION = "vcsIntegration"
 
 
 class AppSettings(object):
@@ -136,7 +148,11 @@ class AppSettings(object):
             self.parallel_asset_upload = data.get("parallelAssetUpload", self.DEFAULT_PARALLEL_ASSET_UPLOAD)
             self.parallel_file_upload_per_asset = data.get("parallelFileUploadPerAsset", self.DEFAULT_PARALLEL_FILE_UPLOAD_PER_ASSET)
             self.environment_variables = data.get("environmentVariables", {})
+            self.feature_flags = data.get("featureFlags", [])
             self.http_timeout = data.get("httpTimeout", self.DEFAULT_HTTP_TIMEOUT)
+
+    def is_feature_flag_enabled(self, feature_flag: FeatureFlags):
+        return feature_flag in self.feature_flags
 
     def to_json(self):
         return rf"""{{
@@ -314,3 +330,22 @@ class CollectionInfo(object):
         if parent.__str__() == ".":
             return ""
         return parent.__str__()
+
+
+class VcsInformation(object):
+    def __init__(self):
+        self.vcs_integration_id = ""
+        self.repository = ""
+        self.branch = ""
+
+    def to_json(self):
+        return rf"""{{
+    "vcsIntegrationId": "{self.vcs_integration_id}",
+    "repository": "{self.repository}",
+    "branch": "{self.branch}"
+}}"""
+
+    def from_json(self, json_data: dict):
+        self.vcs_integration_id = json_data.get("vcsIntegrationId", "")
+        self.repository = json_data.get("repository", "")
+        self.branch = json_data.get("branch", "")

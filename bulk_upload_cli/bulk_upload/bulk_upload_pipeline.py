@@ -16,7 +16,10 @@ from bulk_upload.dependency_resolving import DependencyResolver, EmbeddedDepende
     AssetReferenceDependencyResolver, DefaultDependencyResolver
 from bulk_upload.validation_providers import ValidationProvider, InteractiveCSVValidationProvider, \
     HeadlessCSVValidationProvider
-from bulk_upload.file_explorers import FileExplorer, LocalFileExplorer
+from bulk_upload.file_explorers import FileExplorer, LocalFileExplorer, VcsFileExplorer
+
+
+version = "0.7.0"
 
 
 class PipelineState:
@@ -63,6 +66,7 @@ class BulkUploadPipeline:
         self.is_headless_run = config_file is not None or select_config
         self.config_file = config_file
         self.select_config = select_config
+        uc.set_app_information("unity_cloud_python_cli_tool", ("unity_cloud_python_cli_tool", version))
         self.init_unity_cloud()
         self.is_login = not self.is_headless_run
         complete = False
@@ -149,7 +153,7 @@ class BulkUploadPipeline:
         if self.step == 5:
             # Step 6: Upload
             print("\n")
-            action = "Uploading"
+            action = "Indexing" if config.vcs_integration is not None else "Uploading"
             log_ok(f"Step 6: {action} assets")
 
             asset_uploader = self.get_asset_uploader(config)
@@ -242,8 +246,10 @@ class BulkUploadPipeline:
 
     @staticmethod
     def get_file_explorer(config: ProjectUploaderConfig):
-        return LocalFileExplorer()
-
+        if config.vcs_integration is None:
+            return LocalFileExplorer()
+        else:
+            return VcsFileExplorer(config)
 
     @staticmethod
     def write_config(config: ProjectUploaderConfig):
