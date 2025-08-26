@@ -3,7 +3,7 @@
     "parallelAssetUpload": 5,
     "parallelFileUploadPerAsset": 5,
     "environmentVariables": {
-	},
-	"featureFlags":[],
-	"httpTimeout": 300
+    },
+    "featureFlags": [],
+    "httpTimeout": 300
 }

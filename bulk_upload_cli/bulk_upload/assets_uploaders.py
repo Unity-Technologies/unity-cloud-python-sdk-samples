@@ -8,7 +8,6 @@ from bulk_upload.models import *
 from concurrent.futures import ThreadPoolExecutor, wait
 from unity_cloud.models import *
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +35,6 @@ class CloudAssetUploader(AssetUploader):
                 logger.warning("====== WARNING ====")
                 logger.warning("Upload will continue, but no update can be made, only creation. /n")
 
-
         if asset_infos is None:
             return
 
@@ -46,40 +44,56 @@ class CloudAssetUploader(AssetUploader):
 
         for asset in asset_infos:
             for project_asset in cloud_assets:
-                if asset.name == project_asset.name or (asset.name.lower() == project_asset.name.lower() and not self.config.case_sensitive):
+                if asset.name == project_asset.name or (
+                        asset.name.lower() == project_asset.name.lower() and not self.config.case_sensitive):
                     asset.am_id = project_asset.id
                     asset.version = project_asset.version
                     asset.already_in_cloud = True
                     asset.is_frozen_in_cloud = project_asset.is_frozen
+                    cloud_assets.remove(project_asset) # prevent using the same asset again if the names are the same
                     break
+
+        if config.vcs_integration is not None:
+            asset_to_remove = [asset for asset in asset_infos if asset.already_in_cloud]
+
+            if len(asset_to_remove) > 0:
+                print("Removing assets that already exist to recreate VCS integration", flush=True)
+
+                self.remove_assets(asset_to_remove, config)
+                for asset in asset_to_remove:
+                    asset.already_in_cloud = False
+                    asset.is_frozen_in_cloud = False
+                    asset.am_id = None
+                    asset.version = None
 
         with ThreadPoolExecutor(max_workers=app_settings.parallel_creation_edit) as executor:
             for asset in asset_infos:
                 if not asset.already_in_cloud:
                     self.futures.append(executor.submit(self.create_asset, asset))
-                elif asset.is_frozen_in_cloud:
+                elif config.vcs_integration is None and asset.is_frozen_in_cloud:
                     self.futures.append(executor.submit(self.create_new_version, asset))
 
         wait(self.futures)
         self.futures = list()
 
-        #sleep for 12 seconds to allow the asset to be created with their dataset
+        # sleep for 12 seconds to allow the asset to be created with their dataset
         time.sleep(10)
 
-        print("Setting asset dependencies", flush=True)
-        with ThreadPoolExecutor(max_workers=app_settings.parallel_creation_edit) as executor:
-            for asset in asset_infos:
-                self.futures.append(executor.submit(self.set_asset_references, asset, asset_infos))
+        if self.config.vcs_integration is None:
+            print("Setting asset dependencies", flush=True)
+            with ThreadPoolExecutor(max_workers=app_settings.parallel_creation_edit) as executor:
+                for asset in asset_infos:
+                    self.futures.append(executor.submit(self.set_asset_references, asset, asset_infos))
 
             wait(self.futures)
             self.futures = list()
 
-        #sleep for 10 seconds to allow back-end to finish processing
+        # sleep for 10 seconds to allow back-end to finish processing
         time.sleep(10)
         print("Setting collections", flush=True)
         self.set_collections(config.collections)
 
-        #sleep for 5 seconds to allow back-end to finish processing
+        # sleep for 5 seconds to allow back-end to finish processing
         time.sleep(5)
 
         if self.config.update_files and self.config.strategy == Strategy.CLOUD_ASSET:
@@ -87,19 +101,22 @@ class CloudAssetUploader(AssetUploader):
             print("File update not supported for cloud assets, skipping file upload", flush=True)
         with ThreadPoolExecutor(max_workers=app_settings.parallel_asset_upload) as executor:
             for asset in asset_infos:
-                if not asset.already_in_cloud or self.config.update_files:
+                if self.config.vcs_integration is not None:
+                    self.futures.append(executor.submit(self.create_vcs_mappings, asset))
+                elif not asset.already_in_cloud or self.config.update_files:
                     self.futures.append(executor.submit(self.upload_asset_files, asset, app_settings))
 
         self.futures = list()
 
-        print("Setting tags and metadata for assets", flush=True)
-        with ThreadPoolExecutor(max_workers=app_settings.parallel_creation_edit) as executor:
-            for asset in asset_infos:
-                self.futures.append(executor.submit(self.set_asset_decorations, asset))
+        if self.config.vcs_integration is None:
+            print("Setting tags and metadata for assets", flush=True)
+            with ThreadPoolExecutor(max_workers=app_settings.parallel_creation_edit) as executor:
+                for asset in asset_infos:
+                    self.futures.append(executor.submit(self.set_asset_decorations, asset))
 
-        wait(self.futures)
+            wait(self.futures)
 
-        action = "uploading"
+        action = "indexing" if self.config.vcs_integration is not None else "uploading"
         print(f"Done {action} assets")
 
     def validate_config(self):
@@ -113,7 +130,9 @@ class CloudAssetUploader(AssetUploader):
     def create_asset(self, asset: AssetInfo):
         try:
             print(f"Creating asset: {asset.name}", flush=True)
-            asset_creation = AssetCreation(name=asset.name, type= AssetType.OTHER if len(asset.files) == 0 else self.get_asset_type(asset.files[0].cloud_path))
+            asset_creation = AssetCreation(name=asset.name,
+                                           type=AssetType.OTHER if len(asset.files) == 0 else self.get_asset_type(
+                                               asset.files[0].cloud_path))
             created_asset = uc.assets.create_asset(asset_creation, self.config.org_id, self.config.project_id)
             asset.am_id = created_asset.id
             asset.version = created_asset.version
@@ -125,7 +144,8 @@ class CloudAssetUploader(AssetUploader):
     def create_new_version(self, asset: AssetInfo):
         try:
             print(f"Creating new version for asset: {asset.name}", flush=True)
-            new_version = uc.assets.create_unfrozen_asset_version(self.config.org_id, self.config.project_id, asset.am_id, asset.version)
+            new_version = uc.assets.create_unfrozen_asset_version(self.config.org_id, self.config.project_id,
+                                                                  asset.am_id, asset.version)
             asset.version = new_version.version
         except Exception as e:
             print(f'Failed to create new version for asset: {asset.name}', flush=True)
@@ -134,7 +154,8 @@ class CloudAssetUploader(AssetUploader):
     def upload_asset_files(self, asset: AssetInfo, app_settings: AppSettings):
         try:
 
-            dataset_id = uc.assets.get_dataset_list(self.config.org_id, self.config.project_id, asset.am_id, asset.version)[0].id
+            dataset_id = \
+            uc.assets.get_dataset_list(self.config.org_id, self.config.project_id, asset.am_id, asset.version)[0].id
 
             if self.config.update_files:
                 self.delete_existing_files(asset, dataset_id)
@@ -154,10 +175,33 @@ class CloudAssetUploader(AssetUploader):
             print(f'Failed to upload files for asset: {asset.name}', flush=True)
             logger.exception(e)
 
+    def create_vcs_mappings(self, asset: AssetInfo):
+        import unity_cloud.assets
+        print("Creating VCS mappings for asset: " + asset.name, flush=True)
+        try:
+            self.set_asset_decorations(asset, skip_freeze=True)
+
+            files_paths = [file.path.as_posix()[1:] if file.path.as_posix().startswith("/") else file.path.as_posix()
+                           for file in asset.files]
+
+            vcs_mapping_creation = VcsMappingCreation(asset.am_id, asset.version,
+                                                      self.config.vcs_integration.vcs_integration_id,
+                                                      self.config.vcs_integration.repository,
+                                                      self.config.vcs_integration.branch,
+                                                      filter_paths=files_paths)
+
+            uc.assets.create_vcs_mapping(vcs_mapping_creation, self.config.project_id)
+
+        except Exception as e:
+            print(f'Failed to create VCS mapping for asset: {asset.name}', flush=True)
+            logger.exception(e)
+
     def delete_existing_files(self, asset: AssetInfo, dataset_id: str):
-        file_list = uc.assets.get_file_list(self.config.org_id, self.config.project_id, asset.am_id, asset.version, dataset_id)
+        file_list = uc.assets.get_file_list(self.config.org_id, self.config.project_id, asset.am_id, asset.version,
+                                            dataset_id)
         for file in file_list:
-            uc.assets.remove_file(self.config.org_id, self.config.project_id, asset.am_id, asset.version, dataset_id, file.path)
+            uc.assets.remove_file(self.config.org_id, self.config.project_id, asset.am_id, asset.version, dataset_id,
+                                  file.path)
 
     def upload_file(self, asset: AssetInfo, dataset_id: str, file: FileInfo):
         try:
@@ -165,7 +209,7 @@ class CloudAssetUploader(AssetUploader):
                 file_in_cloud = None
                 try:
                     file_in_cloud = uc.assets.get_file(self.config.org_id, self.config.project_id, asset.am_id,
-                                                   asset.version, dataset_id, file.cloud_path)
+                                                       asset.version, dataset_id, file.cloud_path)
                 except Exception:
                     # do nothing file was not found, this is expected
                     pass
@@ -175,9 +219,10 @@ class CloudAssetUploader(AssetUploader):
                     return
 
             file_upload = FileUploadInformation(organization_id=self.config.org_id, project_id=self.config.project_id,
-                                                asset_id=asset.am_id, asset_version=asset.version, dataset_id=dataset_id,
+                                                asset_id=asset.am_id, asset_version=asset.version,
+                                                dataset_id=dataset_id,
                                                 upload_file_path=file.path, cloud_file_path=file.cloud_path)
-            uc.assets.upload_file(file_upload, disable_automatic_transformations=True)
+            uc.assets.upload_file(file_upload, disable_automatic_transformations=False)
 
         except Exception as e:
             print(f'Failed to upload file: {file.path}', flush=True)
@@ -208,9 +253,10 @@ class CloudAssetUploader(AssetUploader):
         try:
             for dependence_index in asset.dependencies:
                 asset_referenced = assets[dependence_index]
-                unity_cloud.assets.add_asset_reference(self.config.org_id, self.config.project_id, asset.am_id, asset.version,
-                                              target_asset_id=asset_referenced.am_id,
-                                              target_asset_version=asset_referenced.version)
+                unity_cloud.assets.add_asset_reference(self.config.org_id, self.config.project_id, asset.am_id,
+                                                       asset.version,
+                                                       target_asset_id=asset_referenced.am_id,
+                                                       target_asset_version=asset_referenced.version)
 
         except Exception as e:
             print(f'Failed to set references for asset: {asset.name}', flush=True)
@@ -241,13 +287,15 @@ class CloudAssetUploader(AssetUploader):
 
         if not skip_freeze:
             uc.assets.freeze_asset_version(self.config.org_id, self.config.project_id, asset.am_id, asset.version,
-                                           "new version")
+                                           "new version", uc.models.FreezeType.WAIT_ON_TRANSFORMATION)
 
     def create_collections(self, collections: [CollectionInfo]):
         for collection in collections:
             try:
                 if not collection.exists_in_cloud:
-                    collection_creation = CollectionCreation(name=collection.get_name(), parent_path=collection.get_parent(), description=collection.get_name())
+                    collection_creation = CollectionCreation(name=collection.get_name(),
+                                                             parent_path=collection.get_parent(),
+                                                             description=collection.get_name())
                     uc.assets.create_collection(collection_creation, self.config.org_id, self.config.project_id)
                     # wait for the collection to be created since this can cause unauthorized errors if the collection is not ready
                     time.sleep(0.5)
@@ -273,10 +321,10 @@ class CloudAssetUploader(AssetUploader):
         if suffix in [".fbx", ".obj", ".prefab"]:
             return AssetType.MODEL_3D
         elif suffix in [".png", ".apng", ".jpg", ".jpeg", ".bmp", ".tiff", ".gif", ".psd", ".tga", ".tif",
-                                   ".exr", ".webp", ".svg", "pjpeg", ".pjp", ".jfif", ".avif", ".ico", ".cur", ".ani"]:
+                        ".exr", ".webp", ".svg", "pjpeg", ".pjp", ".jfif", ".avif", ".ico", ".cur", ".ani"]:
             return AssetType.ASSET_2D
         elif suffix in [".mp4", ".webm", ".ogg", ".ogv", ".avi", ".mov", ".flv", ".mkv", ".m4v", ".3gp",
-                                   ".h264", ".h265", "wmv"]:
+                        ".h264", ".h265", "wmv"]:
             return AssetType.VIDEO
         elif suffix in [".mp3", ".wav", ".ogg", ".aac"]:
             return AssetType.AUDIO
@@ -292,6 +340,16 @@ class CloudAssetUploader(AssetUploader):
 
     def get_meta_file(self, file: PurePath) -> FileInfo:
         return self.get_file_info(PurePath(f"{file}.meta"))
+
+    def remove_assets(self, asset_infos: [AssetInfo], config: ProjectUploaderConfig):
+        try:
+            assets_chunks = [asset_infos[i:i + 50] for i in range(0, len(asset_infos), 50)]
+
+            for chunk in assets_chunks:
+                uc.assets.unlink_assets_from_project(config.org_id, config.project_id, [asset.am_id for asset in chunk])
+        except Exception as e:
+            print(f'Failed to remove assets', flush=True)
+            logger.exception(e)
 
 
 if __name__ == '__main__':

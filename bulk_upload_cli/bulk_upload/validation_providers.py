@@ -22,7 +22,7 @@ class InteractiveCSVValidationProvider(ValidationProvider):
                              mandatory_message="Cannot go back here."))
 
         if not create_csv:
-            self.validate_amount_of_assets(assets)
+            self.validate_amount_of_assets(assets, is_vcs_indexing=config.vcs_integration is not None)
             return assets
 
         try:
@@ -79,17 +79,20 @@ class InteractiveCSVValidationProvider(ValidationProvider):
                     asset.from_csv(row)
                     assets.append(asset)
 
-        self.validate_amount_of_assets(assets)
+        self.validate_amount_of_assets(assets, is_vcs_indexing=config.vcs_integration is not None)
 
         return assets
 
     @staticmethod
-    def validate_amount_of_assets(assets: [AssetInfo]):
+    def validate_amount_of_assets(assets: [AssetInfo], is_vcs_indexing: bool = False):
         from InquirerPy import inquirer
 
-        total_size = sum([asset.get_files_size() for asset in assets])
-        total_assets = len(assets)
-        print(f"You're about to upload {total_assets} assets with a total size of {total_size} bytes.")
+        if is_vcs_indexing:
+            print(f"You're about to index {len(assets)} assets.")
+        else:
+            total_size = sum([asset.get_files_size() for asset in assets])
+            total_assets = len(assets)
+            print(f"You're about to upload {total_assets} assets with a total size of {total_size} bytes.")
 
         proceed = execute_prompt(inquirer.confirm("Do you want to proceed?", mandatory_message="Cannot go back here."))
         if not proceed:

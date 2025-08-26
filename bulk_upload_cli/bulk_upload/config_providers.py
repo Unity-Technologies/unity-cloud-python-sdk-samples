@@ -6,7 +6,8 @@ from InquirerPy import inquirer
 from shared.utils import log_info, execute_prompt
 
 import unity_cloud as uc
-from bulk_upload.models import ProjectUploaderConfig, Strategy, DependencyStrategy, AppSettings, FileSource
+from bulk_upload.models import ProjectUploaderConfig, Strategy, DependencyStrategy, AppSettings, FeatureFlags, \
+    FileSource, VcsInformation
 
 
 class ConfigProvider(ABC):
@@ -19,8 +20,19 @@ class UndoException(Exception):
     pass
 
 
+class VcsInfosState:
+    def __init__(self):
+        self.selected_integration_name = ""
+        self.integrations = []
+        self.vcs_creation_name = ""
+        self.vcs_creation_provider = ""
+        self.vcs_creation_server_address = ""
+        self.vcs_creation_auth_token = ""
+        self.vcs_integration = None
+
+
 class InteractiveConfigProvider(ConfigProvider):
-    possible_actions = ["Upload local assets", "Update assets' metadata"]
+    possible_actions = ["Upload local assets", "Update assets' metadata", "Index assets from VCS"]
     actual_step = 0
     last_step = 0
 
@@ -31,7 +43,10 @@ class InteractiveConfigProvider(ConfigProvider):
         self.config = None
         self.actual_step = 0
         self.last_step = 0
+        self.vcs_infos = VcsInfosState()
         self.using_service_account = False
+        #check if app.environment_variables contains "UNITY_CLOUD_SERVICES_FQDN" to determine if we are in a private cloud
+        self.in_private_cloud = True if "UNITY_CLOUD_SERVICES_FQDN" in app.environment_variables else False
 
     def execute_prompt_and_increment_step(self, prompt, force_mandatory=False):
         prompt._mandatory = force_mandatory
@@ -78,6 +93,8 @@ class InteractiveConfigProvider(ConfigProvider):
 
         if self.selected_action == self.possible_actions[1]:
             return self.get_cloud_asset_config()
+        elif self.selected_action == self.possible_actions[2]:
+            return self.get_vcs_config()
 
         self.ask_for_assets_location()
 
@@ -128,7 +145,7 @@ class InteractiveConfigProvider(ConfigProvider):
         if self.must_skip():
             return
 
-        selected_actions_choices = self.possible_actions
+        selected_actions_choices = self.possible_actions if self.in_private_cloud else self.possible_actions[:2]
 
         self.selected_action = self.execute_prompt_and_increment_step(inquirer.select(message="Select an action:", choices=selected_actions_choices))
 
@@ -159,9 +176,9 @@ class InteractiveConfigProvider(ConfigProvider):
         elif strategy == "One file = one asset":
             self.config.strategy = Strategy.SINGLE_FILE_ASSET
 
-    def get_folder_config(self, strategy: Strategy) -> ProjectUploaderConfig:
+    def get_folder_config(self, strategy: Strategy, vcs_integration = False) -> ProjectUploaderConfig:
 
-        if not self.must_skip():
+        if not vcs_integration and not self.must_skip():
             while True:
                 path = self.execute_prompt_and_increment_step(
                     inquirer.filepath(message="Enter the path to the root folder of the assets:")).strip('\"').strip(
@@ -177,9 +194,9 @@ class InteractiveConfigProvider(ConfigProvider):
         if strategy == Strategy.FOLDER_GROUPING:
             self.config.hierarchical_level = self.execute_prompt_auto(inquirer.number(
                 message="Enter the depth of directory grouping (for example, 1 to group by top folders in your asset directory)"),
-                self.config.hierarchical_level)
+                self.config.hierarchical_level) if not vcs_integration else 0
 
-        if strategy == Strategy.SINGLE_FILE_ASSET or strategy == Strategy.FOLDER_GROUPING:
+        if not vcs_integration and (strategy == Strategy.SINGLE_FILE_ASSET or strategy == Strategy.FOLDER_GROUPING):
             self.config.preview_detection = self.execute_prompt_auto(inquirer.confirm(
                 message="Would you like to enable automatic preview detection (see documentation to see how it is detected)?"),
                 self.config.preview_detection)
@@ -202,6 +219,10 @@ class InteractiveConfigProvider(ConfigProvider):
 
         if strategy == Strategy.SINGLE_FILE_ASSET_UNITY:
             self.ask_for_dependency_strategy()
+            if not vcs_integration:
+                self.config.preview_detection = self.execute_prompt_auto(inquirer.confirm(
+                    message="Would you like to enable automatic preview detection (see documentation to see how it is detected)?"),
+                    self.config.preview_detection)
 
         return self.config
 
@@ -260,6 +281,120 @@ class InteractiveConfigProvider(ConfigProvider):
         self.config.strategy = Strategy.CLOUD_ASSET
         self.config.assets_path = f"https://cloud.unity.com/home/organizations/{self.config.org_id}/projects/{self.config.project_id}/"
         return self.config
+
+    def get_vcs_config(self) -> ProjectUploaderConfig:
+
+        import unity_cloud.assets
+
+        self.config.file_source = FileSource.VCS
+        self.get_vcs_integration()
+
+        # getting the repository
+        if not self.must_skip():
+            repositories = uc.assets.list_vcs_integration_repositories(self.config.org_id,
+                                                                             self.config.vcs_integration.vcs_integration_id)
+            repository_choices = [repository.name for repository in repositories]
+            self.config.vcs_integration.repository = self.execute_prompt_and_increment_step(
+                inquirer.select(message="Select the repository:",
+                                choices=repository_choices))
+
+        # getting the branch
+        if not self.must_skip():
+            branches = uc.assets.list_repository_branches(self.config.org_id, self.config.vcs_integration.vcs_integration_id,
+                                                                self.config.vcs_integration.repository)
+            branches_choices = [branch.name for branch in branches]
+            self.config.vcs_integration.branch = self.execute_prompt_and_increment_step(inquirer.select(message="Select the branch:",
+                                                            choices=branches_choices))
+
+            # Remove the leading slash if it exists
+            if self.config.vcs_integration.branch.startswith("/"):
+                self.config.vcs_integration.branch = self.config.vcs_integration.branch[1:]
+
+        self.get_repository_path(self.config.org_id, self.config.vcs_integration)
+
+        self.ask_for_folder_strategy()
+        return self.get_folder_config(self.config.strategy, vcs_integration=True)
+
+    def get_vcs_integration(self):
+
+        if not self.must_skip():
+            self.config.vcs_integration = VcsInformation()
+            self.integrations = uc.assets.list_vcs_integrations(self.config.org_id)
+            integration_choices = [integration.name for integration in self.integrations]
+            integration_choices.append("Create a new VCS integration")
+
+            self.vcs_infos.selected_integration_name = self.execute_prompt_and_increment_step(
+                inquirer.select(message="Select the VCS integration:",
+                                choices=integration_choices))
+
+        if self.vcs_infos.selected_integration_name == "Create a new VCS integration":
+            selected_integration_id = self.create_vcs_integration()
+        else:
+            selected_integration_id = [integration for integration in self.integrations if
+                                       integration.name == self.vcs_infos.selected_integration_name][0].id
+
+        self.config.vcs_integration.vcs_integration_id = selected_integration_id
+
+    def create_vcs_integration(self) -> str:
+        self.vcs_infos.vcs_creation_name = self.execute_prompt_auto(
+            inquirer.text(message="Enter the name of the VCS integration:"), self.vcs_infos.vcs_creation_name)
+
+        self.vcs_infos.vcs_creation_provider = self.execute_prompt_auto(
+            inquirer.select(message="Select the VCS provider:", choices=["plasticSCM"]),
+            self.vcs_infos.vcs_creation_provider)
+
+        self.vcs_infos.vcs_creation_server_address = self.execute_prompt_auto(
+            inquirer.text(message="Enter the server address:"), self.vcs_infos.vcs_creation_server_address)
+
+        self.vcs_infos.vcs_creation_auth_token = self.execute_prompt_auto(
+            inquirer.text(message="Enter the authentication token:"), self.vcs_infos.vcs_creation_auth_token)
+
+        integration_creation = uc.models.VcsIntegrationCreation(name=self.vcs_infos.vcs_creation_name,
+                                                                provider=self.vcs_infos.vcs_creation_provider,
+                                                                server_host=self.vcs_infos.vcs_creation_server_address,
+                                                                auth_bearer_token=self.vcs_infos.vcs_creation_auth_token)
+
+        log_info(f"Creating VCS integration")
+        return uc.assets.create_vcs_integration(integration_creation, self.config.org_id)
+
+    def get_repository_path(self, org_id: str, vcs_information: VcsInformation):
+        if self.must_skip():
+            return
+
+        path = ""
+
+        while True:
+            folders = uc.assets.list_branch_folders(org_id, vcs_information.vcs_integration_id,
+                                                          vcs_information.repository, vcs_information.branch, path)
+
+            directories = [f"{path}/{folder.name}" for folder in folders if folder.type == "Directory"]
+
+            current_folder = ". (select this directory)"
+            folder_choices = [current_folder]
+
+            go_back_option = ".. (go back)"
+            if path != "":
+                folder_choices.append(go_back_option)
+
+            folder_choices.extend(directories)
+
+            selected_folder = self.execute_prompt_and_increment_step(
+                inquirer.select(message="Select a folder:", choices=folder_choices))
+            if selected_folder == current_folder:
+                current_folder = path
+                break
+            elif selected_folder == go_back_option:
+                path = "/".join(path.split("/")[:-1])
+                self.last_step -= 1
+                continue
+
+            self.last_step -= 1
+            path = selected_folder
+
+        if path == "" or path == ".":
+            self.config.assets_path = "/"
+        else:
+            self.config.assets_path = path
 
     @staticmethod
     def ask_for_login():

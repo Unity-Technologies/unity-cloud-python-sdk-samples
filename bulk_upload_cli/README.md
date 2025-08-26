@@ -20,6 +20,7 @@ For more related resources and support services, see [Help & Support](https://cl
     - [Creating a CSV from a Unity Cloud project](#creating-a-csv-from-a-unity-cloud-project)
     - [Edit metadata in the CSV file](#edit-metadata-in-the-csv-file)
     - [Use an existing configuration file](#use-an-existing-configuration-file)
+    - [Index assets from VCS](#index-assets-from-vcs)
     - [Optimize asset creation and upload](#optimize-asset-creation-and-upload)
     - [Use keybindings](#use-keybindings)
     - [Replicate the folder structure with collections](#replicate-the-folder-structure-with-collections)
@@ -72,6 +73,7 @@ Select one of the following actions:
 
 - **Upload local assets**: Upload assets from your local machine to the cloud. See [Select the input method](#select-the-input-method) section for more information.
 - **Update assets' metadata**: Update the metadata of existing assets in the cloud. See [Creating a csv from a Unity Cloud project](#creating-a-csv-from-a-unity-cloud-project) section for more information.
+- **Index assets from VCS**: Select this option to index assets from a version control system (VCS) to the cloud. See the [Index assets from VCS](#index-assets-from-vcs) section for more information.
 ### Select the input method
 
 Select one of the following strategies as the input method for bulk asset creation:
@@ -139,6 +141,27 @@ To use an existing configuration file, follow these steps:
 3. On the next run with the `--create` flag, you can add the `--config` flag followed by the name of the configuration file you created. All your answers from the first run will be loaded from the configuration file.
 4. Alternatively, you can use the `--config-select` flag to select from a list of existing configuration files.
 
+### Index assets from VCS
+
+To index assets from a version control system (VCS) to the cloud, follow these steps:
+1. Run the CLI tool with the `--create` flag.
+2. When prompted to choose an action, select `Index assets from VCS`.
+3. You will be prompted to select an existing VCS integration or create a new one.
+    - To create a new VCS integration, you will need to provide the following information:
+        - The VCS provider (for the moment only `plasticSCM` is supported).
+        - The server URL.
+        - Your authentication token.
+4. You will be prompted to select a repository from the VCS integration. Select the repository you want to index.
+5. You will be prompted to select a branch from the repository. Select the branch you want to index.
+6. You will be prompted to select a folder from the branch. Select the folder you want to index. Use the '. (select this directory)' when you're in the folder you want to index; select '.. (go back)' to go back to the parent folder.
+7. You will be prompted to select the grouping strategy for the assets:
+    - group files by name: Select this option if your assets are following a naming convention, for example, blueasset.fbx, blueasset.png.
+    - group files by folder: Select this option if your assets are organized by folder, that is, all relevant files are in distinct folders.
+    - one file = one asset: Select this option if no grouping is necessary. Each file in the asset folder and its subfolders is created as an asset.
+8. Answer the next questions normally.
+
+At the end of the process, the CLI tool will create assets with files from the VCS mapped in a new dataset called `VCS Dataset`.
+
 ### Optimize asset creation and upload
 
 Depending on your network, the number of assets, and the size of the assets, you can adjust the following settings in the `app_settings.json` file to optimize asset creation and upload:
@@ -179,9 +202,9 @@ Here's an example of how to set the environment variables in the `app_settings.j
 ```json
 {
   "environmentVariables": {
-    "UNITY_CLOUD_SERVICES_FQDN": "https://your-private-cloud-url.com",
+    "UNITY_CLOUD_SERVICES_FQDN": "your-private-cloud-fqdn.com",
     "UNITY_CLOUD_SERVICES_FQDN_PATH_PREFIX": "/backend",
-    "UNITY_CLOUD_SERVICES_OPENID_CONFIGURATION_URL": "https://your-private-cloud-url.com/auth/realms/unity/.well-known/openid-configuration"
+    "UNITY_CLOUD_SERVICES_OPENID_CONFIGURATION_URL": "https://your-private-cloud-fqdn.com/auth/realms/unity/.well-known/openid-configuration"
   }
 }
 ```
