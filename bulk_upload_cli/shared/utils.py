@@ -74,7 +74,7 @@ def pip_install_requirements():
         sys.stderr.write(f"Failed to install Unity Cloud SDK\n")
 
 def check_python_version():
-    if sys.version_info < (3, 10):
+    if sys.version_info < (3, 9):
         return False
     return True
 
