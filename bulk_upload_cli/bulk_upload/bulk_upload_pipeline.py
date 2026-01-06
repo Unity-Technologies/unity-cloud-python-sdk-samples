@@ -19,7 +19,7 @@ from bulk_upload.validation_providers import ValidationProvider, InteractiveCSVV
 from bulk_upload.file_explorers import FileExplorer, LocalFileExplorer, VcsFileExplorer
 
 
-version = "0.7.0"
+version = "0.7.1"
 
 
 class PipelineState:

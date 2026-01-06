@@ -5,6 +5,11 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2025-12-11
+
+### Changed
+- Update python sdk version to prevent rate limit exceptions.
+
 ## [0.7.0] - 2025-08-26
 
 ### Added
@@ -31,6 +36,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 - Added the capacity to replicate assets' folder structure into collections.
+- VCS integration support
 
 ### Changed
 - Updated dependency installation process to use requirements.txt
